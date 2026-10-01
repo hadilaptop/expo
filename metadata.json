@@ -1,0 +1,6 @@
+{
+  "name": "Expo React Native Boilerplate & Architecture Studio",
+  "description": "Production-ready Expo React Native starter architecture with React Navigation (Tabs + Stack), Zustand state management, and an interactive live simulator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
