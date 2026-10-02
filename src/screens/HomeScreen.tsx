@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -9,11 +8,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as jalaali from 'jalaali-js'; // استفاده از کتابخانه تقویم جلالی شما
+import * as jalaali from 'jalaali-js';
+
+// کامپوننت‌های سفارشی
+import CustomText from '../components/CustomText';
+import { toPersianDigits } from '../utils/numberUtils';
 
 export default function HomeScreen({ onNavigate = (screen: string) => console.log(screen), customerCount = 5, isInitialized = true }) {
   
-  // تولید تاریخ دقیق و قطعی شمسی
   const [currentDate] = useState(() => {
     const today = new Date();
     const jDate = jalaali.toJalaali(today);
@@ -24,14 +26,10 @@ export default function HomeScreen({ onNavigate = (screen: string) => console.lo
     const weekdayName = weekDays[today.getDay()];
     const monthName = persianMonths[jDate.jm - 1];
     
-    // تابع تبدیل اعداد انگلیسی به فارسی
-    const toPersianDigits = (num: number | string) => 
-      String(num).replace(/\d/g, (x) => ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'][parseInt(x)]);
-    
     return `${weekdayName}، ${toPersianDigits(jDate.jd)} ${monthName} ${toPersianDigits(jDate.jy)}`;
   });
 
-  const displayCustomerCount = Number(customerCount || 0).toLocaleString("fa-IR");
+  const displayCustomerCount = toPersianDigits(customerCount || 0);
 
   return (
     <View style={styles.dashboardAppContainer}>
@@ -44,9 +42,9 @@ export default function HomeScreen({ onNavigate = (screen: string) => console.lo
           style={styles.dashHeader}
         >
           <View style={styles.dashHeaderTop}>
-            <Text style={styles.dashDate}>{currentDate}</Text>
+            <CustomText style={styles.dashDate}>{currentDate}</CustomText>
           </View>
-          <Text style={styles.dashHeaderTitle}>سیستم مدیریت فاکتور و حسابداری</Text>
+          <CustomText style={styles.dashHeaderTitle}>سیستم مدیریت فاکتور و حسابداری</CustomText>
         </LinearGradient>
 
         <View style={styles.dashContent}>
@@ -63,11 +61,11 @@ export default function HomeScreen({ onNavigate = (screen: string) => console.lo
                   <View style={styles.cardIcon}>
                     <Ionicons name="stats-chart" size={20} color="#ffffff" />
                   </View>
-                  <Text style={styles.cardTitle}>فاکتور جدید</Text>
+                  <CustomText style={styles.cardTitle}>فاکتور جدید</CustomText>
                 </View>
                 <View style={styles.cardBody}>
-                  <Text style={styles.cardCount}>صدور سریع فاکتور</Text>
-                  <Text style={styles.cardDesc}>صدور پیش‌فاکتور و فاکتور فروش</Text>
+                  <CustomText style={styles.cardCount}>صدور سریع فاکتور</CustomText>
+                  <CustomText style={styles.cardDesc}>صدور پیش‌فاکتور و فاکتور فروش</CustomText>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -83,13 +81,13 @@ export default function HomeScreen({ onNavigate = (screen: string) => console.lo
                   <View style={styles.cardIcon}>
                     <Ionicons name="people" size={22} color="#ffffff" />
                   </View>
-                  <Text style={styles.cardTitle}>مدیریت حساب‌ها</Text>
+                  <CustomText style={styles.cardTitle}>مدیریت حساب‌ها</CustomText>
                 </View>
                 <View style={styles.cardBody}>
-                  <Text style={styles.cardCount}>
+                  <CustomText style={styles.cardCount}>
                     {!isInitialized ? "در حال به‌روزرسانی..." : `تعداد ${displayCustomerCount} مشتری`}
-                  </Text>
-                  <Text style={styles.cardDesc}>مشاهده صورتحساب و پرداختی‌ها</Text>
+                  </CustomText>
+                  <CustomText style={styles.cardDesc}>مشاهده صورتحساب و پرداختی‌ها</CustomText>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -105,11 +103,11 @@ export default function HomeScreen({ onNavigate = (screen: string) => console.lo
                   <View style={styles.cardIcon}>
                      <Ionicons name="person-add" size={20} color="#ffffff" />
                   </View>
-                  <Text style={styles.cardTitle}>حساب جدید</Text>
+                  <CustomText style={styles.cardTitle}>حساب جدید</CustomText>
                 </View>
                 <View style={styles.cardBody}>
-                  <Text style={styles.cardCount}>ثبت مشتری جدید</Text>
-                  <Text style={styles.cardDesc}>افزودن اطلاعات برای صدور فاکتور</Text>
+                  <CustomText style={styles.cardCount}>ثبت مشتری جدید</CustomText>
+                  <CustomText style={styles.cardDesc}>افزودن اطلاعات برای صدور فاکتور</CustomText>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -131,7 +129,7 @@ const styles = StyleSheet.create({
   },
   dashHeader: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 65 : 55, // تنظیم فاصله مناسب برای بالای گوشی
+    paddingTop: Platform.OS === 'ios' ? 65 : 55, 
     paddingBottom: 30,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
@@ -146,18 +144,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    direction: 'ltr',
+
   },
   dashDate: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: '#fff',
     textAlign: 'left',
   },
   dashHeaderTitle: {
     textAlign: 'center',
     fontSize: 18,
-    fontWeight: '900',
     color: '#fff',
     lineHeight: 25,
     marginTop: 15,
@@ -191,11 +187,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
-    direction: 'ltr',
+
   },
   cardTitle: {
     fontSize: 19,
-    fontWeight: '800',
     color: '#ffffff',
     marginHorizontal: 10,
   },
@@ -214,7 +209,6 @@ const styles = StyleSheet.create({
   },
   cardCount: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: '#ffffff',
     textAlign: 'center',
     marginBottom: 4,

@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    direction: 'ltr',
+
   },
   dashDate: {
     fontSize: 13,

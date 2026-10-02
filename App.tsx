@@ -1,32 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, StatusBar, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, StatusBar, View, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Font from 'expo-font'; // ایمپورت کتابخانه فونت
+import * as Font from 'expo-font'; 
+import * as NavigationBar from 'expo-navigation-bar'; // ایمپورت پکیج نوار ناوبری
 
 import HomeScreen from './src/screens/HomeScreen';
 import AccountScreen from './src/screens/AccountScreen';
 import CustomersScreen from './src/screens/CustomersScreen';
 import InvoicesScreen from './src/screens/InvoiceScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+
+import BottomNav from './src/components/BottomNav';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('dashboard');
-  const [fontsLoaded, setFontsLoaded] = useState(false); // استیت برای وضعیت لود فونت
+  const [fontsLoaded, setFontsLoaded] = useState(false); 
 
-  // لود کردن فونت در زمان اجرای اولیه برنامه
-  useEffect(() => {
+ useEffect(() => {
+    // ۱. تابع لود کردن فونت‌ها
     async function loadAppFonts() {
       await Font.loadAsync({
-        // این نام (Vazirmatn) دقیقاً همان نامی است که در fontFamily فایل‌های استایل دادید
-        // مسیر فایل فونت را بر اساس پوشه‌ای که ساختید تنظیم کنید
-        'Vazirmatn': require('./assets/fonts/Vazirmatn-Black.ttf'), 
+        'Vazirmatn': require('./assets/fonts/Vazirmatn-FD-Bold.ttf'), 
       });
       setFontsLoaded(true);
     }
+    
+    // ۲. تابع تغییر رنگ نوار (جداگانه و محافظت‌شده)
+    async function setupNavBar() {
+      if (Platform.OS === 'android') {
+        try {
+          await NavigationBar.setBackgroundColorAsync('#0d2b43'); 
+          await NavigationBar.setButtonStyleAsync('light'); 
+        } catch (error) {
+          console.log("Navigation Bar Error:", error);
+          // این خطا در کنسول چاپ می‌شود اما برنامه شما کرش نمی‌کند
+        }
+      }
+    }
 
     loadAppFonts();
+    setupNavBar();
   }, []);
-
-  // تا زمانی که فونت لود نشده است، این لودینگ نمایش داده می‌شود تا از کرش کردن برنامه جلوگیری شود
   if (!fontsLoaded) {
     return (
       <View style={styles.loadingContainer}>
@@ -45,8 +59,11 @@ export default function App() {
         return <CustomersScreen onNavigate={setCurrentScreen} />;
       case 'invoice': 
         return <InvoicesScreen onNavigate={setCurrentScreen} />;
+      case 'settings':
+        return <SettingsScreen onNavigate={setCurrentScreen} />;
       default:
         return <HomeScreen onNavigate={setCurrentScreen} />;
+
     }
   };
 
@@ -59,6 +76,10 @@ export default function App() {
           translucent={true} 
         />
         {renderScreen()}
+        <BottomNav 
+          activeTab={currentScreen} 
+          onNavigate={setCurrentScreen} 
+        />
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -73,6 +94,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0d2b43', // یک پس‌زمینه تیره و هماهنگ با هدر برای زمان لودینگ
+    backgroundColor: '#0d2b43', 
   }
 });

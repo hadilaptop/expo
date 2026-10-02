@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef } from "react"; // 👈 useRef اضافه شد
+import React, { useState, useEffect, useRef } from "react"; 
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   Platform,
@@ -12,15 +10,15 @@ import {
   Animated,
   Dimensions
 } from "react-native";
+import {
+  toPersianDigits,formatNumber,parseNumber,convertNumberToPersianWords,
+} from "../utils/numberUtils";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-
-// تبدیل اعداد به فارسی
-const toPersianDigits = (str: string | number) => {
-  if (!str) return "";
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return str.toString().replace(/\d/g, (x) => persianDigits[parseInt(x)]);
-};
+import AnimatedScrollWrapper, { AnimatedScrollWrapperRef } from '../components/AnimatedScrollWrapper';
+import Header from '../components/Header';
+import CustomText from '../components/CustomText';
+import CustomTextInput from '../components/CustomTextInput';
 
 export default function AccountScreen({
   onNavigate = (screen: string) => {},
@@ -28,6 +26,7 @@ export default function AccountScreen({
   customerToEdit = null,
   existingCustomers = [],
 }: any) {
+  const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
   const [customerName, setCustomerName] = useState(customerToEdit?.name || "");
   const [address, setAddress] = useState(customerToEdit?.address || "");
   const [phone, setPhone] = useState(customerToEdit?.phone || "");
@@ -40,18 +39,6 @@ export default function AccountScreen({
     title: "",
     message: "",
   });
-
-  // 👈 مقدار اولیه انیمیشن ورود از راست
-  const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
-
-  // 👈 اجرای انیمیشن به محض باز شدن صفحه
-  useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true,
-    }).start();
-  }, [slideAnim]);
 
   useEffect(() => {
     if (customerToEdit) {
@@ -70,13 +57,8 @@ export default function AccountScreen({
   }, [customerToEdit]);
 
   const handleClose = () => {
-    // 👈 هنگام برگشت، انیمیشن خروج به سمت راست انجام می‌شود
-    Animated.timing(slideAnim, {
-      toValue: Dimensions.get('window').width,
-      duration: 150,
-      useNativeDriver: true,
-    }).start(() => {
-      onNavigate('dashboard');
+    scrollRef.current?.close(() => {
+      onNavigate("dashboard");
     });
   };
 
@@ -134,36 +116,18 @@ export default function AccountScreen({
 
   return (
    <View style={styles.overlay}>
-      {/* هدر صفحه */}
-      <LinearGradient
-        colors={["#0d2b43", "#0f4c75"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>
-            {customerToEdit ? "ویرایش حساب" : "ثبت حساب جدید"}
-          </Text>
-          {customerToEdit && (
-            <Text style={styles.headerSubtitle}>
-              کد مشتری: {toPersianDigits(customerToEdit.id || "۱")}
-            </Text>
-          )}
-        </View>
-
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={handleClose}
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={26} color="#ffffff" />
-        </TouchableOpacity>
-      </LinearGradient>
+{/* هدر صفحه */}
+      <Header 
+        title={customerToEdit ? "ویرایش حساب" : "ثبت حساب جدید"}
+        subtitle={customerToEdit ? `کد مشتری: ${toPersianDigits(customerToEdit.id || "۱")}` : undefined}
+        onBack={handleClose}
+        iconName="arrow-back"
+      />
 
       {/* محتوای فرم */}
-   <Animated.ScrollView
-        style={{ flex: 1, transform: [{ translateX: slideAnim }] }} // 👈 انیمیشن اینجا قرار می‌گیرد
+   <AnimatedScrollWrapper
+        ref={scrollRef}
+        style={{ flex: 1 }} 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -175,8 +139,8 @@ export default function AccountScreen({
         >
           {/* نام مشتری */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>نام مشتری / شرکت :</Text>
-            <TextInput
+            <CustomText style={styles.label}>نام مشتری / شرکت :</CustomText>
+            <CustomTextInput
               style={styles.input}
               placeholder="شرکت..."
               placeholderTextColor="#b3d4e6"
@@ -187,8 +151,8 @@ export default function AccountScreen({
 
           {/* آدرس */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>آدرس :</Text>
-            <TextInput
+            <CustomText style={styles.label}>آدرس :</CustomText>
+            <CustomTextInput
               style={styles.input}
               placeholder="استان، شهر، خیابان..."
               placeholderTextColor="#b3d4e6"
@@ -199,33 +163,33 @@ export default function AccountScreen({
 
           {/* شماره تماس */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>شماره تماس :</Text>
-            <TextInput
+            <CustomText style={styles.label}>شماره تماس :</CustomText>
+            <CustomTextInput
               style={styles.input} 
               placeholder="0912..."
               placeholderTextColor="#b3d4e6"
               keyboardType="phone-pad"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(text: string) => setPhone(toPersianDigits(text))}
             />
           </View>
 
           {/* کد اقتصادی */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>کد اقتصادی :</Text>
-            <TextInput
+            <CustomText style={styles.label}>کد اقتصادی :</CustomText>
+            <CustomTextInput
               style={styles.input} 
               placeholder="0"
               placeholderTextColor="#b3d4e6"
               keyboardType="numeric"
               value={economicCode}
-              onChangeText={setEconomicCode}
+              onChangeText={(text: string) => setEconomicCode(toPersianDigits(text))}
             />
           </View>
 
           {/* آپلود عکس */}
           <View style={styles.profileUploadGroup}>
-            <Text style={styles.label}>عکس پروفایل :</Text>
+            <CustomText style={styles.label}>عکس پروفایل :</CustomText>
             <View style={styles.profileUploadWrapper}>
               {profilePreview ? (
                 <View style={styles.previewBox}>
@@ -238,7 +202,7 @@ export default function AccountScreen({
                     style={styles.removeBtn}
                     onPress={() => setProfilePreview("")}
                   >
-                    <Text style={styles.removeBtnText}>حذف تصویر</Text>
+                    <CustomText style={styles.removeBtnText}>حذف تصویر</CustomText>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -247,7 +211,7 @@ export default function AccountScreen({
                   style={styles.customFileUpload}
                   onPress={handleProfilePicPress}
                 >
-                  <Text style={styles.uploadTextIndicator}>انتخاب فایل</Text>
+                  <CustomText style={styles.uploadTextIndicator}>انتخاب فایل</CustomText>
                 </TouchableOpacity>
               )}
             </View>
@@ -265,13 +229,13 @@ export default function AccountScreen({
               end={{ x: 1, y: 1 }}
               style={styles.btnSave}
             >
-              <Text style={styles.btnSaveText}>
+              <CustomText style={styles.btnSaveText}>
                 {customerToEdit ? "ویرایش اطلاعات" : "ذخیره اطلاعات"}
-              </Text>
+              </CustomText>
             </LinearGradient>
           </TouchableOpacity>
         </LinearGradient>
-      </Animated.ScrollView>
+      </AnimatedScrollWrapper>
 
       {/* مودال هشدار خروجی/تکراری بودن نام */}
       <Modal
@@ -292,8 +256,8 @@ export default function AccountScreen({
             <View style={styles.alertIconBg}>
               <Ionicons name="warning-outline" size={32} color="#f59e0b" />
             </View>
-            <Text style={styles.alertTitle}>{alertModal.title}</Text>
-            <Text style={styles.alertMessage}>{alertModal.message}</Text>
+            <CustomText style={styles.alertTitle}>{alertModal.title}</CustomText>
+            <CustomText style={styles.alertMessage}>{alertModal.message}</CustomText>
 
             <TouchableOpacity
               activeOpacity={0.8}
@@ -302,7 +266,7 @@ export default function AccountScreen({
                 setAlertModal({ show: false, title: "", message: "" })
               }
             >
-              <Text style={styles.alertBtnText}>متوجه شدم</Text>
+              <CustomText style={styles.alertBtnText}>متوجه شدم</CustomText>
             </TouchableOpacity>
           </LinearGradient>
         </View>
@@ -317,54 +281,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#eaf6fc",
   },
-  header: {
-    flexDirection: "row-reverse", 
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 70 : 60,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-    zIndex: 10,
-  },
-  headerInfo: {
-    flex: 1,
-    alignItems: "flex-end", 
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#ffffff",
-    lineHeight: 28,
-    textAlign: "right",
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: "#ffffff",
-    opacity: 0.9,
-    fontWeight: "500",
-    marginTop: 4,
-    textAlign: "right",
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: 19,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
-  },
+ 
   scrollContent: {
     paddingVertical: 10,
     paddingHorizontal: 15,
@@ -403,7 +320,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 14,
     color: "#ffffff",
-    textAlign: "right", 
+    // textAlign: "right", 
   },
   profileUploadGroup: {
     alignItems: "center",

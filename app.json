@@ -17,7 +17,11 @@
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       },
-      "package": "com.company.myexpoapp"
+      "package": "com.company.myexpoapp",
+      "navigationBar": {
+        "backgroundColor": "#0d2b43",
+        "barStyle": "light-content"
+      }
     },
     "plugins": [
       "expo-asset",

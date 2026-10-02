@@ -11,111 +11,18 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
 } from "react-native";
+import {
+  toPersianDigits,formatNumber,parseNumber,convertNumberToPersianWords,
+} from "../utils/numberUtils";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import Header from "../components/Header";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AnimatedScrollWrapper, {
+  AnimatedScrollWrapperRef,
+} from "../components/AnimatedScrollWrapper";
+import InvoicePreview from "./InvoicePreview";
 
-// --- توابع کمکی ---
-const toPersianDigits = (str: string | number) => {
-  if (str === null || str === undefined) return "";
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return str.toString().replace(/\d/g, (x) => persianDigits[parseInt(x)]);
-};
-
-const formatNumber = (num: number | string) => {
-  if (!num) return "";
-  const cleanNum = num
-    .toString()
-    .replace(/,/g, "")
-    .replace(/[۰-۹]/g, (c) => "0123456789"[c.charCodeAt(0) - 1776]);
-  if (isNaN(Number(cleanNum)) || cleanNum === "") return "";
-  return toPersianDigits(Number(cleanNum).toLocaleString("en-US"));
-};
-
-const parseNumber = (str: string | number) => {
-  if (!str) return 0;
-  if (typeof str === "number") return str;
-  const englishStr = str
-    .toString()
-    .replace(/[۰-۹]/g, (c) => "0123456789"[c.charCodeAt(0) - 1776])
-    .replace(/,/g, "");
-  return parseInt(englishStr, 10) || 0;
-};
-
-// تابع کامل تبدیل عدد به حروف فارسی
-const convertNumberToPersianWords = (number: number) => {
-  if (!number || number === 0) return "صفر ریال";
-
-  const yekan = ["", "یک", "دو", "سه", "چهار", "پنج", "شش", "هفت", "هشت", "نه"];
-  const dahgan = [
-    "",
-    "ده",
-    "بیست",
-    "سی",
-    "چهل",
-    "پنجاه",
-    "شصت",
-    "هفتاد",
-    "هشتاد",
-    "نود",
-  ];
-  const dahha = [
-    "ده",
-    "یازده",
-    "دوازده",
-    "سیزده",
-    "چهارده",
-    "پانزده",
-    "شانزده",
-    "هفده",
-    "هجده",
-    "نوزده",
-  ];
-  const sadgan = [
-    "",
-    "صد",
-    "دویست",
-    "سیصد",
-    "چهارصد",
-    "پانصد",
-    "ششصد",
-    "هفتصد",
-    "هشتصد",
-    "نهصد",
-  ];
-  const base = ["", "هزار", "میلیون", "میلیارد", "تریلیون"];
-
-  const getGroupWords = (n: number) => {
-    let words = [];
-    let h = Math.floor(n / 100);
-    let t = Math.floor((n % 100) / 10);
-    let u = n % 10;
-    if (h > 0) words.push(sadgan[h]);
-    if (t === 1) {
-      words.push(dahha[u]);
-    } else {
-      if (t > 1) words.push(dahgan[t]);
-      if (u > 0) words.push(yekan[u]);
-    }
-    return words.join(" و ");
-  };
-
-  let numStr = number.toString();
-  let result = [];
-  let groupCount = 0;
-
-  while (numStr.length > 0) {
-    let chunk = numStr.slice(-3);
-    numStr = numStr.slice(0, -3);
-    let chunkNum = parseInt(chunk, 10);
-    if (chunkNum > 0) {
-      let chunkText = getGroupWords(chunkNum);
-      if (base[groupCount]) chunkText += " " + base[groupCount];
-      result.unshift(chunkText);
-    }
-    groupCount++;
-  }
-  return result.join(" و ") + " ریال";
-};
 
 const { width } = Dimensions.get("window");
 const MAX_ROWS = 12;
@@ -209,7 +116,10 @@ export default function InvoiceScreen({
 }: any) {
   const slideAnim = useRef(new Animated.Value(width)).current;
   const bottomBarAnim = useRef(new Animated.Value(100)).current;
-
+  const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
+  const insets = useSafeAreaInsets();
+  const safePaddingBottom = insets.bottom > 0 ? insets.bottom + 5 : 10;
+  const bottomNavHeight = 55 + safePaddingBottom;
   const [step, setStep] = useState("form");
   const [isSaving, setIsSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -268,30 +178,17 @@ export default function InvoiceScreen({
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }),
       Animated.timing(bottomBarAnim, {
         toValue: 0,
-        duration: 300,
+        duration: 150,
         delay: 150,
         useNativeDriver: true,
       }),
     ]).start();
   }, [slideAnim, bottomBarAnim]);
 
-  const handleBack = () => {
-    if (step === "preview") {
-      setStep("form");
-      return;
-    }
-    Animated.timing(slideAnim, {
-      toValue: width,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
+  const handleClose = () => {
+    scrollRef.current?.close(() => {
       onNavigate("dashboard");
     });
   };
@@ -346,7 +243,7 @@ export default function InvoiceScreen({
     setIsSaving(true);
     setTimeout(() => {
       setIsSaving(false);
-      handleBack();
+      handleClose();
     }, 1000);
   };
 
@@ -356,32 +253,17 @@ export default function InvoiceScreen({
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={["#0d2b43", "#0f4c75"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>
-            {step === "form" ? "صدور فاکتور جدید" : "نمایش فاکتور"}
-          </Text>
-        </View>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={handleBack}
-          style={styles.backBtn}
-        >
-          {/* آیکون برگشت اصلاح شد */}
-          <Ionicons name="arrow-back" size={22} color="#ffffff" />
-        </TouchableOpacity>
-      </LinearGradient>
-
+      <Header
+        title={step === "form" ? "صدور فاکتور جدید" : "نمایش فاکتور"}
+        onBack={handleClose}
+        iconName="arrow-back"
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Animated.ScrollView
+        <AnimatedScrollWrapper
+          ref={scrollRef}
           style={{ flex: 1, transform: [{ translateX: slideAnim }] }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -689,124 +571,32 @@ export default function InvoiceScreen({
               </LinearGradient>
             </View>
           ) : (
-            <View style={styles.previewContainer}>
-              <View style={styles.previewCard}>
-                <View style={styles.previewHeader}>
-                  <View style={styles.previewHeaderCenter}>
-                    <Text style={styles.previewTitle}>{invoiceType}</Text>
-                    <Text style={styles.previewSubBrand}>{sellerName}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.previewMeta}>
-                  <Text style={styles.previewMetaText}>
-                    شماره فاکتور: {toPersianDigits(invoiceNumber)}
-                  </Text>
-                  <Text style={styles.previewMetaText}>
-                    تاریخ: {toPersianDigits(invoiceDate)}
-                  </Text>
-                </View>
-
-                <View style={styles.previewParties}>
-                  <View style={styles.previewBuyerBox}>
-                    <Text style={styles.previewBuyerName}>
-                      خریدار: {buyerName || "وارد نشده"}
-                    </Text>
-                    {buyerPhone ? (
-                      <Text style={styles.previewBuyerDetails}>
-                        تلفن: {toPersianDigits(buyerPhone)}
-                      </Text>
-                    ) : null}
-                    {buyerEconomicCode ? (
-                      <Text style={styles.previewBuyerDetails}>
-                        کد اقتصادی: {toPersianDigits(buyerEconomicCode)}
-                      </Text>
-                    ) : null}
-                    {buyerAddress ? (
-                      <Text style={styles.previewBuyerDetails}>
-                        آدرس: {buyerAddress}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-
-                <View style={styles.previewTable}>
-                  <View style={styles.previewTableHeader}>
-                    <Text style={[styles.previewTh, { flex: 0.5 }]}>ردیف</Text>
-                    <Text style={[styles.previewTh, { flex: 2 }]}>
-                      شرح کالا
-                    </Text>
-                    <Text style={[styles.previewTh, { flex: 0.8 }]}>تعداد</Text>
-                    <Text style={[styles.previewTh, { flex: 1.5 }]}>
-                      قیمت واحد
-                    </Text>
-                    <Text style={[styles.previewTh, { flex: 1.5 }]}>
-                      جمع کل
-                    </Text>
-                  </View>
-                  {rows.map((row: any, idx: number) => {
-                    const q = parseNumber(row.quantity) || 1;
-                    const p = parseNumber(row.unitPrice) || 0;
-                    return (
-                      <View key={idx} style={styles.previewTableRow}>
-                        <Text style={[styles.previewTd, { flex: 0.5 }]}>
-                          {toPersianDigits(idx + 1)}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.previewTd,
-                            { flex: 2, textAlign: "right", paddingRight: 5 },
-                          ]}
-                        >
-                          {row.desc || "---"}
-                        </Text>
-                        <Text style={[styles.previewTd, { flex: 0.8 }]}>
-                          {toPersianDigits(q)}
-                        </Text>
-                        <Text style={[styles.previewTd, { flex: 1.5 }]}>
-                          {formatNumber(p)}
-                        </Text>
-                        <Text style={[styles.previewTd, { flex: 1.5 }]}>
-                          {formatNumber(q * p)}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-
-                <View style={styles.previewTotalFinal}>
-                  <Text style={styles.previewTotalLabel}>
-                    مبلغ نهایی فاکتور :
-                  </Text>
-                  <Text style={styles.previewTotalValue}>
-                    {formatNumber(grandTotal)} ریال
-                  </Text>
-                </View>
-
-                {noteText ? (
-                  <View style={styles.previewNoteBox}>
-                    <Text style={styles.previewNoteLabel}>توضیحات:</Text>
-                    <Text style={styles.previewNoteText}>{noteText}</Text>
-                  </View>
-                ) : null}
-
-                <View style={styles.previewFooter}>
-                  <View style={styles.previewDivider} />
-                  <Text style={styles.previewFooterText}>{sellerAddress}</Text>
-                  <Text style={styles.previewFooterText}>
-                    {toPersianDigits(sellerPhone)}
-                  </Text>
-                </View>
-              </View>
-            </View>
+            <InvoicePreview
+              invoiceType={invoiceType}
+              sellerName={sellerName}
+              sellerAddress={sellerAddress}
+              sellerPhone={sellerPhone}
+              invoiceNumber={invoiceNumber}
+              invoiceDate={invoiceDate}
+              buyerName={buyerName}
+              buyerPhone={buyerPhone}
+              buyerEconomicCode={buyerEconomicCode}
+              buyerAddress={buyerAddress}
+              rows={rows}
+              grandTotal={grandTotal}
+              noteText={noteText}
+            />
           )}
-        </Animated.ScrollView>
+        </AnimatedScrollWrapper>
       </KeyboardAvoidingView>
 
       <Animated.View
         style={[
           styles.bottomBar,
-          { transform: [{ translateY: bottomBarAnim }] },
+          {
+            bottom: bottomNavHeight + 20,
+            transform: [{ translateY: bottomBarAnim }],
+          },
         ]}
       >
         <View style={styles.actionCard}>
@@ -889,40 +679,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#eaf6fc",
   },
-  header: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 60 : 50,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    zIndex: 10,
-  },
-  headerInfo: {
-    flex: 1,
-    alignItems: "flex-end",
-  },
-  headerTitle: {
-    fontFamily: "Vazirmatn",
-    fontSize: 24,
-    color: "#ffffff",
-    textAlign: "right",
-  },
-  backBtn: {
-    width: 42,
-    height: 42,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: 21,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+
   scrollContent: {
     padding: 16,
     paddingBottom: 110,
@@ -1016,7 +773,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.1)",
     borderWidth: 1.5,
     borderColor: "rgba(255,255,255,0.3)",
-    alignItems: "center",
     justifyContent: "center",
   },
   typeBtnActive: {
@@ -1181,7 +937,7 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 25 : 15,
+    bottom: Platform.OS === "ios" ? 95 : 95,
     left: 0,
     right: 0,
     alignItems: "center",
@@ -1196,7 +952,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 15,
-    gap: 15,
+    gap: 45,
     borderWidth: 2,
     borderColor: "#3282b8",
   },
