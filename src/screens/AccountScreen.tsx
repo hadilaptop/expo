@@ -166,7 +166,7 @@ export default function AccountScreen({
             <CustomText style={styles.label}>شماره تماس :</CustomText>
             <CustomTextInput
               style={styles.input} 
-              placeholder="0912..."
+              placeholder=" شماره تماس ... "
               placeholderTextColor="#b3d4e6"
               keyboardType="phone-pad"
               value={phone}
@@ -179,7 +179,7 @@ export default function AccountScreen({
             <CustomText style={styles.label}>کد اقتصادی :</CustomText>
             <CustomTextInput
               style={styles.input} 
-              placeholder="0"
+              placeholder=" کد اقتصادی ... "
               placeholderTextColor="#b3d4e6"
               keyboardType="numeric"
               value={economicCode}

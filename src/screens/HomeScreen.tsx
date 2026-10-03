@@ -16,9 +16,15 @@ import { toPersianDigits } from '../utils/numberUtils';
 
 export default function HomeScreen({ onNavigate = (screen: string) => console.log(screen), customerCount = 5, isInitialized = true }) {
   
-  const [currentDate] = useState(() => {
+const [currentDate] = useState(() => {
     const today = new Date();
-    const jDate = jalaali.toJalaali(today);
+    
+    // استخراج سال، ماه (باضافه یک، چون ماه‌ها در JS از صفر شروع می‌شوند) و روز
+    const jDate = jalaali.toJalaali(
+      today.getFullYear(), 
+      today.getMonth() + 1, 
+      today.getDate()
+    );
     
     const persianMonths = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
     const weekDays = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه"];

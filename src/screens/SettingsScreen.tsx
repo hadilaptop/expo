@@ -149,7 +149,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
   return (
     <View style={styles.container}>
       <Header
-        title="تنظیمات فاکتور"
+        title="تنظیمات فاکتور "
         onBack={handleClose}
         iconName="arrow-back"
       />
