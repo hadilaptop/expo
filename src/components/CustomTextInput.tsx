@@ -1,45 +1,48 @@
 import React, { useState } from 'react';
 import { TextInput, TextInputProps, StyleSheet } from 'react-native';
 
-// تعریف یک اینترفیس برای اضافه کردن پراپ جدید
 interface CustomTextInputProps extends TextInputProps {
-  disableFocusStyle?: boolean; // پراپ جدید برای غیرفعال کردن استایل فوکوس
+  disableFocusStyle?: boolean; 
 }
 
 export default function CustomTextInput({ 
   style, 
   onFocus, 
   onBlur, 
-  disableFocusStyle = false, // مقدار پیش‌فرض false است
+  disableFocusStyle = false, 
   ...props 
 }: CustomTextInputProps) {
   const [isFocused, setIsFocused] = useState(false);
 
+  // تشخیص خودکار فیلدهای عددی بر اساس نوع کیبورد
+  const isNumeric = props.keyboardType === 'numeric' || props.keyboardType === 'phone-pad';
+
   return (
     <TextInput
-      // فقط زمانی که استایل فوکوس فعال است رنگ کرسر سفید شود، 
-      // در غیر این صورت از رنگ پیش فرض سیستم یا رنگ کادر جستجو استفاده شود
       selectionColor={disableFocusStyle ? undefined : "rgba(255, 255, 255, 0.7)"} 
       cursorColor={disableFocusStyle ? "#0f4c75" : "#ffffff"} 
       
       onFocus={(e) => {
         setIsFocused(true);
-        onFocus && onFocus(e);
+        if (onFocus) onFocus(e);
       }}
       onBlur={(e) => {
         setIsFocused(false);
-        onBlur && onBlur(e);
+        if (onBlur) onBlur(e);
       }}
+      
+      scrollEnabled={props.multiline ? false : undefined} 
       
       {...props}
       
       style={[
         styles.defaultFont,
         style,
-        // تنها در صورتی که فیلد فوکوس شده باشد و disableFocusStyle برابر false باشد، استایل اعمال می‌شود
         (isFocused && !disableFocusStyle) && styles.inputFocused, 
         { 
-          textAlign: 'right',
+          // ✨ ترفند اصلی: اگر کیبورد عددی بود، متن چپ‌چین می‌شود تا کرسر پرش نکند
+          // در غیر این صورت (برای نام مشتری و آدرس) همان راست‌چین باقی می‌ماند
+          textAlign: isNumeric ? 'left' : 'right',
         }
       ]}
     />
@@ -48,7 +51,7 @@ export default function CustomTextInput({
 
 const styles = StyleSheet.create({
   defaultFont: {
-    fontFamily: 'Vazirmatn', 
+    fontFamily: 'Vazirmatn', // استفاده از نسخه FD فونت باعث می‌شود تمام اعداد انگلیسی در ظاهر فارسی دیده شوند
   },
   inputFocused: {
     borderColor: "#ffffff",

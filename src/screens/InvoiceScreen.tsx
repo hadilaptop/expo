@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Animated,
@@ -23,29 +21,11 @@ import AnimatedScrollWrapper, {
 } from "../components/AnimatedScrollWrapper";
 import InvoicePreview from "./InvoicePreview";
 
+import CustomText from '../components/CustomText';
+import CustomTextInput from '../components/CustomTextInput';
 
 const { width } = Dimensions.get("window");
 const MAX_ROWS = 12;
-
-// --- کامپوننت‌های سفارشی داخلی ---
-const CustomTextInput = ({ style, onFocus, onBlur, ...props }: any) => {
-  const [isFocused, setIsFocused] = useState(false);
-  return (
-    <TextInput
-      style={[styles.input, isFocused && styles.inputFocused, style]}
-      onFocus={(e) => {
-        setIsFocused(true);
-        onFocus && onFocus(e);
-      }}
-      onBlur={(e) => {
-        setIsFocused(false);
-        onBlur && onBlur(e);
-      }}
-      placeholderTextColor="rgba(255,255,255,0.45)"
-      {...props}
-    />
-  );
-};
 
 const CustomDropdown = ({ label, value, options, onSelect }: any) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -56,7 +36,7 @@ const CustomDropdown = ({ label, value, options, onSelect }: any) => {
         { zIndex: isOpen ? 1000 : 1, elevation: isOpen ? 10 : 1 },
       ]}
     >
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <CustomText style={styles.label}>{label}</CustomText>}
       <TouchableOpacity
         style={[
           styles.input,
@@ -66,7 +46,7 @@ const CustomDropdown = ({ label, value, options, onSelect }: any) => {
         onPress={() => setIsOpen(!isOpen)}
         activeOpacity={0.8}
       >
-        <Text style={styles.dropdownTriggerText}>{value}</Text>
+        <CustomText style={styles.dropdownTriggerText}>{value}</CustomText>
         <Ionicons
           name={isOpen ? "chevron-up" : "chevron-down"}
           size={20}
@@ -84,7 +64,7 @@ const CustomDropdown = ({ label, value, options, onSelect }: any) => {
                 setIsOpen(false);
               }}
             >
-              <Text style={styles.dropdownItemText}>{opt.label}</Text>
+              <CustomText style={styles.dropdownItemText}>{opt.label}</CustomText>
             </TouchableOpacity>
           ))}
         </View>
@@ -132,11 +112,12 @@ export default function InvoiceScreen({
   const [invoiceType, setInvoiceType] = useState(
     invoiceToEdit?.type || "پیش فاکتور",
   );
+  // ✨ توابع toPersianDigits حذف شدند
   const [invoiceNumber, setInvoiceNumber] = useState(
-    toPersianDigits(invoiceToEdit?.number || "1001"),
+    invoiceToEdit?.number || "1001",
   );
   const [invoiceDate, setInvoiceDate] = useState(
-    toPersianDigits(invoiceToEdit?.date || "1405/07/09"),
+    invoiceToEdit?.date || "1405/07/09",
   );
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
@@ -145,11 +126,13 @@ export default function InvoiceScreen({
   const [buyerName, setBuyerName] = useState(
     initialCustomer ? initialCustomer.name : "",
   );
+  
+  // ✨ توابع toPersianDigits حذف شدند
   const [buyerEconomicCode, setBuyerEconomicCode] = useState(
-    toPersianDigits(initialCustomer?.economicCode || ""),
+    initialCustomer?.economicCode || "",
   );
   const [buyerPhone, setBuyerPhone] = useState(
-    toPersianDigits(initialCustomer?.phone || ""),
+    initialCustomer?.phone || "",
   );
   const [buyerAddress, setBuyerAddress] = useState(
     initialCustomer?.address || "",
@@ -157,7 +140,7 @@ export default function InvoiceScreen({
 
   const [rows, setRows] = useState(
     invoiceToEdit?.items || [
-      { id: Date.now(), desc: "", quantity: "۱", unitPrice: "" },
+      { id: Date.now(), desc: "", quantity: "1", unitPrice: "" },
     ],
   );
 
@@ -203,7 +186,7 @@ export default function InvoiceScreen({
     if (rows.length < MAX_ROWS) {
       setRows([
         ...rows,
-        { id: Date.now(), desc: "", quantity: "۱", unitPrice: "" },
+        { id: Date.now(), desc: "", quantity: "1", unitPrice: "" },
       ]);
     }
   };
@@ -234,8 +217,9 @@ export default function InvoiceScreen({
     if (cust) {
       setBuyerName(cust.name || "");
       setBuyerAddress(cust.address || "");
-      setBuyerPhone(toPersianDigits(cust.phone || ""));
-      setBuyerEconomicCode(toPersianDigits(cust.economicCode || ""));
+      // ✨ توابع toPersianDigits حذف شدند
+      setBuyerPhone(cust.phone || "");
+      setBuyerEconomicCode(cust.economicCode || "");
     }
   };
 
@@ -275,10 +259,10 @@ export default function InvoiceScreen({
                 colors={["#0f4c75", "#3282b8"]}
                 style={styles.card}
               >
-                <Text style={styles.sectionTitle}>مشخصات فاکتور</Text>
+                <CustomText style={styles.sectionTitle}>مشخصات فاکتور</CustomText>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>نوع فاکتور :</Text>
+                  <CustomText style={styles.label}>نوع فاکتور :</CustomText>
                   <View style={styles.typeSelectorRow}>
                     <TouchableOpacity
                       style={[
@@ -288,7 +272,7 @@ export default function InvoiceScreen({
                       onPress={() => handleTypeChange("پیش فاکتور")}
                       activeOpacity={0.8}
                     >
-                      <Text
+                      <CustomText
                         style={[
                           styles.typeBtnText,
                           invoiceType === "پیش فاکتور" &&
@@ -298,7 +282,7 @@ export default function InvoiceScreen({
                         adjustsFontSizeToFit
                       >
                         پیش فاکتور
-                      </Text>
+                      </CustomText>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -309,7 +293,7 @@ export default function InvoiceScreen({
                       onPress={() => handleTypeChange("فاکتور فروش")}
                       activeOpacity={0.8}
                     >
-                      <Text
+                      <CustomText
                         style={[
                           styles.typeBtnText,
                           invoiceType === "فاکتور فروش" &&
@@ -319,32 +303,30 @@ export default function InvoiceScreen({
                         adjustsFontSizeToFit
                       >
                         فاکتور فروش
-                      </Text>
+                      </CustomText>
                     </TouchableOpacity>
                   </View>
                 </View>
 
                 <View style={styles.grid2}>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>شماره فاکتور :</Text>
+                    <CustomText style={styles.label}>شماره فاکتور :</CustomText>
                     <CustomTextInput
-                      style={{ textAlign: "center" }}
+                      style={[styles.input, { textAlign: "center" }]}
+                      placeholderTextColor="rgba(255,255,255,0.45)"
                       value={invoiceNumber}
-                      onChangeText={(text: string) =>
-                        setInvoiceNumber(toPersianDigits(text))
-                      }
+                      onChangeText={setInvoiceNumber} // ✨ تغییر فرمت برداشته شد
                       keyboardType="numeric"
                     />
                   </View>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>تاریخ فاکتور :</Text>
+                    <CustomText style={styles.label}>تاریخ فاکتور :</CustomText>
                     <View style={styles.dateInputContainer}>
                       <CustomTextInput
-                        style={{ textAlign: "center", flex: 1 }}
+                        style={[styles.input, { textAlign: "center", flex: 1 }]}
+                        placeholderTextColor="rgba(255,255,255,0.45)"
                         value={invoiceDate}
-                        onChangeText={(text: string) =>
-                          setInvoiceDate(toPersianDigits(text))
-                        }
+                        onChangeText={setInvoiceDate} // ✨ تغییر فرمت برداشته شد
                       />
                       <TouchableOpacity style={styles.dateIconWrapper}>
                         <Ionicons
@@ -368,10 +350,10 @@ export default function InvoiceScreen({
                     selectedCustomerId
                       ? customers.find((c: any) => c.id === selectedCustomerId)
                           ?.name
-                      : "-- مشتری جدید --"
+                      : " مشتری جدید "
                   }
                   options={[
-                    { label: "-- مشتری جدید --", value: null },
+                    { label: " مشتری جدید ", value: null },
                     ...customers.map((c: any) => ({
                       label: c.name,
                       value: c.id,
@@ -385,56 +367,56 @@ export default function InvoiceScreen({
                 colors={["#0f4c75", "#3282b8"]}
                 style={[styles.card, { zIndex: 1 }]}
               >
-                <Text style={styles.sectionTitle}>اطلاعات خریدار</Text>
+                <CustomText style={styles.sectionTitle}>اطلاعات خریدار</CustomText>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>نام خریدار / شرکت *</Text>
+                  <CustomText style={styles.label}>نام خریدار / شرکت *</CustomText>
                   <CustomTextInput
+                    style={[styles.input, selectedCustomerId ? { opacity: 0.7 } : {}]}
+                    placeholderTextColor="rgba(255,255,255,0.45)"
                     placeholder="شرکت..."
                     value={buyerName}
                     onChangeText={setBuyerName}
                     editable={!selectedCustomerId}
-                    style={selectedCustomerId ? { opacity: 0.7 } : {}}
                   />
                 </View>
 
                 <View style={styles.grid2}>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>کد اقتصادی خریدار</Text>
+                    <CustomText style={styles.label}>کد اقتصادی خریدار</CustomText>
                     <CustomTextInput
-                      placeholder="...123"
+                      style={[styles.input, selectedCustomerId ? { opacity: 0.7 } : {}]}
+                      placeholderTextColor="rgba(255,255,255,0.45)"
+                      placeholder=" 0 "
                       value={buyerEconomicCode}
-                      onChangeText={(text: string) =>
-                        setBuyerEconomicCode(toPersianDigits(text))
-                      }
+                      onChangeText={setBuyerEconomicCode} // ✨ تغییر فرمت برداشته شد
                       keyboardType="numeric"
                       editable={!selectedCustomerId}
-                      style={selectedCustomerId ? { opacity: 0.7 } : {}}
                     />
                   </View>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>شماره تماس خریدار</Text>
+                    <CustomText style={styles.label}>شماره تماس خریدار</CustomText>
                     <CustomTextInput
-                      placeholder="...0912"
+                      style={[styles.input, selectedCustomerId ? { opacity: 0.7 } : {}]}
+                      placeholderTextColor="rgba(255,255,255,0.45)"
+                      placeholder="  0912... "
                       value={buyerPhone}
-                      onChangeText={(text: string) =>
-                        setBuyerPhone(toPersianDigits(text))
-                      }
+                      onChangeText={setBuyerPhone} // ✨ تغییر فرمت برداشته شد
                       keyboardType="phone-pad"
                       editable={!selectedCustomerId}
-                      style={selectedCustomerId ? { opacity: 0.7 } : {}}
                     />
                   </View>
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>نشانی خریدار</Text>
+                  <CustomText style={styles.label}>نشانی خریدار</CustomText>
                   <CustomTextInput
+                    style={[styles.input, selectedCustomerId ? { opacity: 0.7 } : {}]}
+                    placeholderTextColor="rgba(255,255,255,0.45)"
                     placeholder="استان، شهر، خیابان..."
                     value={buyerAddress}
                     onChangeText={setBuyerAddress}
                     editable={!selectedCustomerId}
-                    style={selectedCustomerId ? { opacity: 0.7 } : {}}
                   />
                 </View>
               </LinearGradient>
@@ -444,26 +426,26 @@ export default function InvoiceScreen({
                 style={styles.card}
               >
                 <View style={styles.rowHeader}>
-                  <Text style={styles.sectionTitle}>
+                  <CustomText style={styles.sectionTitle}>
                     اقلام و کالاهای فاکتور
-                  </Text>
+                  </CustomText>
                   <TouchableOpacity
                     style={styles.addButton}
                     onPress={addRow}
                     disabled={rows.length >= MAX_ROWS}
                   >
-                    <Text style={styles.addButtonText}>
-                      + سطر جدید ({toPersianDigits(rows.length)})
-                    </Text>
+                    <CustomText style={styles.addButtonText}>
+                      + سطر جدید ({toPersianDigits(rows.length.toString())})
+                    </CustomText>
                   </TouchableOpacity>
                 </View>
 
                 {rows.map((row: any, index: number) => (
                   <View key={row.id} style={styles.itemRow}>
                     <View style={styles.itemRowTop}>
-                      <Text style={styles.itemBadge}>
-                        سطر {toPersianDigits(index + 1)}
-                      </Text>
+                      <CustomText style={styles.itemBadge}>
+                        سطر {toPersianDigits((index + 1).toString())}
+                      </CustomText>
                       {rows.length > 1 && (
                         <TouchableOpacity
                           onPress={() => removeRow(index)}
@@ -478,9 +460,10 @@ export default function InvoiceScreen({
                       )}
                     </View>
 
-                    <Text style={styles.labelSm}>شرح کالا / خدمات</Text>
+                    <CustomText style={styles.labelSm}>شرح کالا / خدمات</CustomText>
                     <CustomTextInput
-                      style={{ marginBottom: 8 }}
+                      style={[styles.input, { marginBottom: 8 }]}
+                      placeholderTextColor="rgba(255,255,255,0.45)"
                       placeholder="محصول جدید"
                       value={row.desc}
                       onChangeText={(text: string) => {
@@ -492,24 +475,26 @@ export default function InvoiceScreen({
 
                     <View style={styles.rowInputGroup}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.labelSm}>تعداد</Text>
+                        <CustomText style={styles.labelSm}>تعداد</CustomText>
                         <CustomTextInput
-                          style={{ textAlign: "center" }}
-                          placeholder="۱"
+                          style={[styles.input, { textAlign: "center" }]}
+                          placeholderTextColor="rgba(255,255,255,0.45)"
+                          placeholder="1"
                           keyboardType="numeric"
                           value={row.quantity}
                           onChangeText={(text: string) => {
                             const cleaned = text.replace(/[^0-9۰-۹]/g, "");
                             const newRows = [...rows];
-                            newRows[index].quantity = toPersianDigits(cleaned);
+                            newRows[index].quantity = cleaned; // ✨ تغییر فرمت برداشته شد
                             setRows(newRows);
                           }}
                         />
                       </View>
                       <View style={{ flex: 2 }}>
-                        <Text style={styles.labelSm}>قیمت واحد (ریال)</Text>
+                        <CustomText style={styles.labelSm}>قیمت واحد (ریال)</CustomText>
                         <CustomTextInput
-                          style={{ textAlign: "left" }}
+                          style={[styles.input, { textAlign: "left" }]}
+                          placeholderTextColor="rgba(255,255,255,0.45)"
                           placeholder="۰"
                           keyboardType="numeric"
                           value={
@@ -518,7 +503,6 @@ export default function InvoiceScreen({
                           onChangeText={(text: string) => {
                             const cleaned = text.replace(/[^0-9۰-۹]/g, "");
                             const newRows = [...rows];
-                            // ذخیره عدد به صورت انگلیسی خام برای محاسبات دقیق و تبدیل سریع در UI
                             newRows[index].unitPrice = cleaned;
                             setRows(newRows);
                           }}
@@ -526,29 +510,29 @@ export default function InvoiceScreen({
                       </View>
                     </View>
                     <View style={styles.itemTotalBox}>
-                      <Text style={styles.labelSm}>
+                      <CustomText style={styles.labelSm}>
                         جمع:{" "}
                         {formatNumber(
                           (parseNumber(row.quantity) || 1) *
                             (parseNumber(row.unitPrice) || 0),
                         )}{" "}
                         ریال
-                      </Text>
+                      </CustomText>
                     </View>
                   </View>
                 ))}
 
                 <View style={styles.totalBox}>
-                  <Text style={styles.totalTitle}>مبلغ کل فاکتور:</Text>
-                  <Text style={styles.totalAmount}>
+                  <CustomText style={styles.totalTitle}>مبلغ کل فاکتور:</CustomText>
+                  <CustomText style={styles.totalAmount}>
                     {formatNumber(grandTotal)}{" "}
-                    <Text style={styles.currencyText}>ریال</Text>
-                  </Text>
+                    <CustomText style={styles.currencyText}>ریال</CustomText>
+                  </CustomText>
                 </View>
                 <View style={styles.wordsBox}>
-                  <Text style={styles.wordsText}>
+                  <CustomText style={styles.wordsText}>
                     {convertNumberToPersianWords(grandTotal)}
-                  </Text>
+                  </CustomText>
                 </View>
               </LinearGradient>
 
@@ -556,13 +540,10 @@ export default function InvoiceScreen({
                 colors={["#0f4c75", "#3282b8"]}
                 style={styles.card}
               >
-                <Text style={styles.sectionTitle}>توضیحات فاکتور</Text>
+                <CustomText style={styles.sectionTitle}>توضیحات فاکتور</CustomText>
                 <CustomTextInput
-                  style={{
-                    height: 95,
-                    textAlignVertical: "top",
-                    lineHeight: 24,
-                  }}
+                  style={[styles.input, {fontSize:14, height: 155, textAlignVertical: "top", lineHeight: 24 }]}
+                  placeholderTextColor="rgba(255,255,255,0.45)"
                   multiline
                   placeholder="توضیحات یا شرایط فاکتور..."
                   value={noteText}
@@ -629,14 +610,14 @@ export default function InvoiceScreen({
                     onPress={() => handleExport("png")}
                     style={styles.exportMenuItem}
                   >
-                    <Text style={styles.exportMenuText}>تصویر (PNG)</Text>
+                    <CustomText style={styles.exportMenuText}>تصویر (PNG)</CustomText>
                   </TouchableOpacity>
                   <View style={styles.exportMenuDivider} />
                   <TouchableOpacity
                     onPress={() => handleExport("pdf")}
                     style={styles.exportMenuItem}
                   >
-                    <Text style={styles.exportMenuText}>فایل (PDF)</Text>
+                    <CustomText style={styles.exportMenuText}>فایل (PDF)</CustomText>
                   </TouchableOpacity>
                 </View>
               )}
@@ -679,10 +660,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#eaf6fc",
   },
-
   scrollContent: {
     padding: 16,
-    paddingBottom: 110,
+    paddingBottom: 410,
   },
   formContainer: {
     flex: 1,
@@ -700,7 +680,7 @@ const styles = StyleSheet.create({
     borderColor: "#a2c8e2",
   },
   sectionTitle: {
-    fontFamily: "Vazirmatn",
+    
     color: "#fff",
     fontSize: 16,
     marginBottom: 12,
@@ -718,7 +698,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontFamily: "Vazirmatn",
+    
     fontSize: 14,
     color: "#ffffff",
     textAlign: "right",
@@ -726,14 +706,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   labelSm: {
-    fontFamily: "Vazirmatn",
+    
     fontSize: 13,
     color: "#ffffff",
     textAlign: "right",
     marginBottom: 4,
   },
   input: {
-    fontFamily: "Vazirmatn",
+    
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.35)",
@@ -760,15 +740,14 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 8,
   },
-
   typeSelectorRow: {
     flexDirection: "row-reverse",
     gap: 10,
   },
   typeBtn: {
     flex: 1,
-    paddingVertical: 10, // ارتفاع متناسب
-    paddingHorizontal: 2, // کاهش فاصله داخلی تا متن جا شود
+    paddingVertical: 10,
+    paddingHorizontal: 2,
     borderRadius: 10,
     backgroundColor: "rgba(255,255,255,0.1)",
     borderWidth: 1.5,
@@ -780,22 +759,21 @@ const styles = StyleSheet.create({
     borderColor: "#10b981",
   },
   typeBtnText: {
-    fontFamily: "Vazirmatn",
+    
     color: "#fff",
-    fontSize: 12, // سایز بهینه برای اینکه تو یک خط جا بشه
+    fontSize: 12,
     textAlign: "center",
   },
   typeBtnTextActive: {
     color: "#fff",
   },
-
   dropdownTrigger: {
     flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
   },
   dropdownTriggerText: {
-    fontFamily: "Vazirmatn",
+    
     color: "#fff",
     fontSize: 15,
   },
@@ -823,12 +801,11 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.15)",
   },
   dropdownItemText: {
-    fontFamily: "Vazirmatn",
+    
     color: "#fff",
     fontSize: 14,
     textAlign: "right",
   },
-
   rowHeader: {
     flexDirection: "row-reverse",
     justifyContent: "space-between",
@@ -845,7 +822,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   addButtonText: {
-    fontFamily: "Vazirmatn",
+    
     color: "#fff",
     fontSize: 13,
   },
@@ -867,7 +844,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   itemBadge: {
-    fontFamily: "Vazirmatn",
+    
     color: "#fff",
     fontSize: 13,
     backgroundColor: "rgba(255,255,255,0.2)",
@@ -902,20 +879,20 @@ const styles = StyleSheet.create({
     borderColor: "#a2c8e2",
   },
   totalTitle: {
-    fontFamily: "Vazirmatn",
+    
     color: "#fff",
     fontSize: 15,
     textAlign: "right",
     marginBottom: 4,
   },
   totalAmount: {
-    fontFamily: "Vazirmatn",
+    
     color: "#fff",
     fontSize: 22,
     textAlign: "left",
   },
   currencyText: {
-    fontFamily: "Vazirmatn",
+    
     fontSize: 15,
     color: "#e0f2fe",
   },
@@ -929,7 +906,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   wordsText: {
-    fontFamily: "Vazirmatn",
+    
     color: "#e0f2fe",
     fontSize: 14,
     textAlign: "center",
@@ -996,7 +973,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   exportMenuText: {
-    fontFamily: "Vazirmatn",
+    
     color: "#fff",
     fontSize: 15,
   },
@@ -1004,175 +981,5 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "rgba(255,255,255,0.1)",
     marginVertical: 4,
-  },
-
-  // ================= PREVIEW STYLES =================
-  previewContainer: {
-    alignItems: "center",
-    paddingBottom: 20,
-  },
-  previewCard: {
-    backgroundColor: "#fff",
-    width: "100%",
-    padding: 15,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: "#0f4c75",
-    minHeight: 500,
-  },
-  previewHeader: {
-    borderBottomWidth: 2,
-    borderBottomColor: "#3282b8",
-    paddingBottom: 15,
-    marginBottom: 15,
-    alignItems: "center",
-  },
-  previewHeaderCenter: {
-    alignItems: "center",
-  },
-  previewTitle: {
-    fontFamily: "Vazirmatn",
-    fontSize: 24,
-    color: "#0d2b43",
-    marginBottom: 5,
-  },
-  previewSubBrand: {
-    fontFamily: "Vazirmatn",
-    fontSize: 20,
-    color: "#1b262c",
-  },
-  previewMeta: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    backgroundColor: "#eaf6fc",
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#086bad",
-    marginBottom: 15,
-  },
-  previewMetaText: {
-    fontFamily: "Vazirmatn",
-    fontSize: 14,
-    color: "#0a2c43",
-  },
-  previewParties: {
-    marginBottom: 15,
-  },
-  previewBuyerBox: {
-    backgroundColor: "#eaf6fc",
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#086bad",
-  },
-  previewBuyerName: {
-    fontFamily: "Vazirmatn",
-    fontSize: 16,
-    color: "#0a2c43",
-    textAlign: "right",
-    marginBottom: 8,
-  },
-  previewBuyerDetails: {
-    fontFamily: "Vazirmatn",
-    fontSize: 13,
-    color: "#0a2c43",
-    textAlign: "right",
-    marginBottom: 4,
-  },
-  previewTable: {
-    borderWidth: 1.5,
-    borderColor: "#086bad",
-    borderRadius: 8,
-    overflow: "hidden",
-    marginBottom: 15,
-  },
-  previewTableHeader: {
-    flexDirection: "row-reverse",
-    backgroundColor: "#bbe1fa",
-    borderBottomWidth: 1.5,
-    borderBottomColor: "#086bad",
-  },
-  previewTh: {
-    fontFamily: "Vazirmatn",
-    padding: 8,
-    fontSize: 12,
-    color: "#0a2c43",
-    textAlign: "center",
-    borderLeftWidth: 1.5,
-    borderLeftColor: "#086bad",
-  },
-  previewTableRow: {
-    flexDirection: "row-reverse",
-    borderBottomWidth: 1.5,
-    borderBottomColor: "#086bad",
-    backgroundColor: "#fff",
-  },
-  previewTd: {
-    fontFamily: "Vazirmatn",
-    padding: 8,
-    fontSize: 13,
-    color: "#2d2a24",
-    textAlign: "center",
-    borderLeftWidth: 1.5,
-    borderLeftColor: "#086bad",
-  },
-  previewTotalFinal: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    backgroundColor: "#bbe1fa",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 15,
-  },
-  previewTotalLabel: {
-    fontFamily: "Vazirmatn",
-    fontSize: 15,
-    color: "#0a2c43",
-  },
-  previewTotalValue: {
-    fontFamily: "Vazirmatn",
-    fontSize: 18,
-    color: "#1b262c",
-  },
-  previewNoteBox: {
-    backgroundColor: "#eaf6fc",
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#3282b8",
-    marginBottom: 15,
-  },
-  previewNoteLabel: {
-    fontFamily: "Vazirmatn",
-    fontSize: 15,
-    color: "#0a2c43",
-    textAlign: "right",
-    marginBottom: 5,
-  },
-  previewNoteText: {
-    fontFamily: "Vazirmatn",
-    fontSize: 14,
-    color: "#1b262c",
-    textAlign: "right",
-    lineHeight: 22,
-  },
-  previewFooter: {
-    alignItems: "center",
-    marginTop: 10,
-    paddingTop: 15,
-  },
-  previewDivider: {
-    width: "60%",
-    height: 2,
-    backgroundColor: "#3282b8",
-    marginBottom: 10,
-    borderStyle: "dashed",
-  },
-  previewFooterText: {
-    fontFamily: "Vazirmatn",
-    fontSize: 13,
-    color: "#1b262c",
-    marginBottom: 4,
   },
 });
