@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react"; 
+import React, { useState, useEffect, useRef } from "react";
+import * as ImagePicker from "expo-image-picker"; 
 import {
   View,
   StyleSheet,
@@ -63,12 +64,28 @@ export default function AccountScreen({
     });
   };
 
-  const handleProfilePicPress = () => {
-    setAlertModal({
-      show: true,
-      title: "آپلود عکس",
-      message: "در این نسخه، امکان آپلود عکس هنوز متصل نشده است.",
+  const handleProfilePicPress = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      setAlertModal({
+        show: true,
+        title: "دسترسی به گالری",
+        message: "برای انتخاب عکس، دسترسی به گالری تصاویر را فعال کنید.",
+      });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
     });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setProfilePreview(result.assets[0].uri);
+    }
   };
 
   const handleSave = async () => {

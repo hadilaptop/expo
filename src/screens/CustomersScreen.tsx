@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
+  Image,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -148,11 +149,18 @@ export default function CustomersScreen({
                   style={styles.cardGradient}
                 >
                   <View style={styles.avatar}>
-                    <Ionicons
-                      name="person"
-                      size={20}
-                      color="#b3d4e6"
-                    />
+                    {customer.avatar ? (
+                      <Image
+                        source={{ uri: customer.avatar }}
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <Ionicons
+                        name="person"
+                        size={20}
+                        color="#b3d4e6"
+                      />
+                    )}
                   </View>
 
                   <View style={styles.info}>
@@ -403,6 +411,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 15,
+  },
+
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
   },
 
   info: {
