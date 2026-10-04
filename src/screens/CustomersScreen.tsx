@@ -1,43 +1,30 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Platform,
   Modal,
   Animated,
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-
 import AnimatedScrollWrapper, {
   AnimatedScrollWrapperRef,
 } from '../components/AnimatedScrollWrapper';
-
 import Header from '../components/Header';
 import { toPersianDigits } from '../utils/numberUtils';
-
 import CustomText from '../components/CustomText';
 import CustomTextInput from '../components/CustomTextInput';
-
 import { Customer } from '../storage/customerStorage';
 
-interface CustomersScreenProps {
-  onNavigate?: (screen: string) => void;
-  customers?: Customer[];
-  onDeleteCustomer?: (id: string | number) => void;
-  onEditCustomer?: (customer: Customer) => void;
-  onSelectCustomerLedger?: (customer: Customer) => void;
-}
-
 export default function CustomersScreen({
-  onNavigate = () => {},
+  onNavigate = (screen: string) => {},
   customers = [],
-  onDeleteCustomer = () => {},
-  onEditCustomer = () => {},
-  onSelectCustomerLedger = () => {},
-}: CustomersScreenProps) {
+  onDeleteCustomer = (id: string | number) => {},
+  onEditCustomer = (customer: Customer) => {},
+  onSelectCustomerLedger = (customer: Customer) => {},
+}) {
   const searchRef = useRef<AnimatedScrollWrapperRef>(null);
   const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
 
@@ -48,17 +35,14 @@ export default function CustomersScreen({
   const [deleteModalData, setDeleteModalData] = useState<Customer | null>(null);
 
   const filteredCustomers = useMemo(() => {
+    if (!searchQuery.trim()) return customers;
+
     const query = searchQuery.trim().toLowerCase();
 
-    if (!query) {
-      return customers;
-    }
-
     return customers.filter(
-      (customer) =>
-        (customer.name &&
-          customer.name.toLowerCase().includes(query)) ||
-        (customer.phone && customer.phone.includes(query))
+      (c) =>
+        (c.name && c.name.toLowerCase().includes(query)) ||
+        (c.phone && c.phone.includes(query))
     );
   }, [customers, searchQuery]);
 
@@ -86,7 +70,7 @@ export default function CustomersScreen({
     <View
       style={styles.overlay}
       onStartShouldSetResponder={() => {
-        if (activeDropdown !== null) {
+        if (activeDropdown) {
           setActiveDropdown(null);
         }
 
@@ -95,7 +79,7 @@ export default function CustomersScreen({
     >
       {/* هدر */}
       <Header
-        title="مدیریت مشتریان"
+        title=" مدیریت مشتریان"
         onBack={handleClose}
         iconName="arrow-back"
       />
@@ -111,29 +95,23 @@ export default function CustomersScreen({
         ]}
       >
         <View style={styles.searchWrapper}>
+          {/* سمت چپ: جایگاه ثابت برای ذره‌بین یا ضربدر */}
           {searchQuery.length > 0 ? (
             <TouchableOpacity
               onPress={() => setSearchQuery('')}
               style={styles.iconWrapper}
             >
               <View style={styles.clearBtn}>
-                <Ionicons
-                  name="close"
-                  size={16}
-                  color="#0f4c75"
-                />
+                <Ionicons name="close" size={16} color="#0f4c75" />
               </View>
             </TouchableOpacity>
           ) : (
             <View style={styles.iconWrapper}>
-              <Ionicons
-                name="search"
-                size={20}
-                color="#0f4c75"
-              />
+              <Ionicons name="search" size={20} color="#0f4c75" />
             </View>
           )}
 
+          {/* کادر جستجو */}
           <CustomTextInput
             style={styles.searchInput}
             placeholder="جستجوی نام یا شماره مشتری..."
@@ -157,10 +135,7 @@ export default function CustomersScreen({
       >
         {filteredCustomers.length > 0 ? (
           filteredCustomers.map((customer) => (
-            <View
-              key={String(customer.id)}
-              style={styles.customerCardWrapper}
-            >
+            <View key={customer.id} style={styles.customerCardWrapper}>
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={styles.customerCard}
@@ -196,8 +171,8 @@ export default function CustomersScreen({
                       activeDropdown === customer.id &&
                         styles.actionBtnActive,
                     ]}
-                    onPress={(event) => {
-                      event.stopPropagation();
+                    onPress={(e) => {
+                      e.stopPropagation();
 
                       setActiveDropdown(
                         activeDropdown === customer.id
@@ -215,7 +190,7 @@ export default function CustomersScreen({
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* منوی عملیات */}
+              {/* منوی دراپ‌داون */}
               {activeDropdown === customer.id && (
                 <View style={styles.dropdownMenu}>
                   <TouchableOpacity
@@ -239,7 +214,9 @@ export default function CustomersScreen({
                   <TouchableOpacity
                     style={[
                       styles.dropdownItem,
-                      { borderBottomWidth: 0 },
+                      {
+                        borderBottomWidth: 0,
+                      },
                     ]}
                     onPress={() => {
                       setActiveDropdown(null);
@@ -255,7 +232,9 @@ export default function CustomersScreen({
                     <CustomText
                       style={[
                         styles.dropdownText,
-                        { color: '#ff5c5c' },
+                        {
+                          color: '#ff5c5c',
+                        },
                       ]}
                     >
                       حذف مشتری
@@ -268,18 +247,17 @@ export default function CustomersScreen({
         ) : (
           <CustomText style={styles.emptyText}>
             {searchQuery.trim()
-              ? 'مشتری با این مشخصات یافت نشد.'
+              ? ' مشتری با این مشخصات یافت نشد. '
               : 'هنوز مشتری ثبت نشده است.'}
           </CustomText>
         )}
       </AnimatedScrollWrapper>
 
-      {/* مودال تأیید حذف */}
+      {/* مودال تایید حذف */}
       <Modal
         visible={!!deleteModalData}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setDeleteModalData(null)}
       >
         <View style={styles.modalOverlay}>
           <LinearGradient
@@ -299,8 +277,7 @@ export default function CustomersScreen({
             </CustomText>
 
             <CustomText style={styles.modalText}>
-              تمام پرداختی‌ها و فاکتورهای مرتبط با این شخص نیز حذف
-              خواهند شد و قابل بازگشت نیست.
+              اطلاعات این مشتری حذف خواهد شد و این عملیات قابل بازگشت نیست.
             </CustomText>
 
             <View style={styles.modalActions}>
@@ -353,7 +330,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     height: 50,
     shadowColor: '#0d2b43',
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
     shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 3,
@@ -395,7 +375,10 @@ const styles = StyleSheet.create({
   customerCard: {
     width: '100%',
     shadowColor: '#3b5998',
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
     shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 5,
@@ -464,7 +447,10 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
     shadowOpacity: 0.3,
     shadowRadius: 10,
   },
@@ -505,7 +491,10 @@ const styles = StyleSheet.create({
     borderColor: '#2e557c',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
     shadowOpacity: 0.5,
     shadowRadius: 20,
     elevation: 15,
@@ -566,4 +555,3 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 });
-
