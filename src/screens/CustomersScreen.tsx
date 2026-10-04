@@ -161,7 +161,7 @@ export default function CustomersScreen({
                     </CustomText>
 
                     <CustomText style={styles.code}>
-                      کد مشتری: {toPersianDigits(customer.id)}
+                      کد مشتری: {toPersianDigits(customer.customerCode ?? customer.id)}
                     </CustomText>
                   </View>
 
