@@ -10,6 +10,8 @@ export interface Customer {
 }
 
 const CUSTOMERS_STORAGE_KEY = "@hadi_factor_customers";
+const NEXT_CUSTOMER_CODE_KEY = "@hadi_factor_next_customer_code";
+const CUSTOMER_CODE_START = 1001;
 
 /**
  * دریافت تمام مشتری‌های ذخیره‌شده
