@@ -19,6 +19,7 @@ import AnimatedScrollWrapper, { AnimatedScrollWrapperRef } from '../components/A
 import Header from '../components/Header';
 import CustomText from '../components/CustomText';
 import CustomTextInput from '../components/CustomTextInput';
+import { getNextCustomerCode } from "../storage/customerStorage";
 
 export default function AccountScreen({
   onNavigate = (screen: string) => {},
@@ -101,6 +102,7 @@ export default function AccountScreen({
 
     const customerData = {
       id: customerToEdit ? customerToEdit.id : Date.now(),
+      customerCode: customerToEdit?.customerCode ?? await getNextCustomerCode(),
       name: trimmedName,
       address: address,
       phone: phone,
@@ -119,7 +121,7 @@ export default function AccountScreen({
 {/* هدر صفحه */}
       <Header 
         title={customerToEdit ? "ویرایش حساب" : "ثبت حساب جدید"}
-        subtitle={customerToEdit ? `کد مشتری: ${toPersianDigits(customerToEdit.id || "۱")}` : undefined}
+        subtitle={customerToEdit ? `کد مشتری: ${toPersianDigits(customerToEdit.customerCode ?? customerToEdit.id ?? "۱")}` : undefined}
         onBack={handleClose}
         iconName="arrow-back"
       />
