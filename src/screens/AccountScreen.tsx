@@ -301,11 +301,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#eaf6fc",
   },
  
-  scrollContent: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    paddingBottom: 40,
-  },
+scrollContent: {
+  flexGrow: 1,
+  paddingVertical: 10,
+  paddingHorizontal: 15,
+  paddingBottom: 400,
+},
   formCard: {
     borderRadius: 20,
     paddingVertical: 10,
@@ -395,7 +396,6 @@ const styles = StyleSheet.create({
   },
   removeBtnText: {
     color: "#ffffff",
-    fontWeight: "800",
     fontSize: 14,
   },
   btnSaveWrapper: {
