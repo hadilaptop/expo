@@ -163,7 +163,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
           contentContainerStyle={styles.scrollContent}
           delay={0}
         >
-          <LinearGradient colors={["#0f4c75", "#3282b8"]} style={styles.card}>
+          <LinearGradient colors={["#0f4c75", "#3282b8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
             <CustomText style={styles.label}>تم رنگی فاکتور :</CustomText>
             <View style={styles.themeSelector}>
               {renderThemeButton("gold", "#7e5108")}
@@ -174,7 +174,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
             </View>
           </LinearGradient>
 
-          <LinearGradient colors={["#0f4c75", "#3282b8"]} style={styles.card}>
+          <LinearGradient colors={["#0f4c75", "#3282b8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
             <View style={styles.inputGroup}>
               <CustomText style={styles.label}>نام شرکت :</CustomText>
               <CustomTextInput
@@ -242,6 +242,8 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
 
           <LinearGradient
             colors={["#3282b8", "#0f4c75"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.actionCard}
           >
             <TouchableOpacity style={styles.btnReset} onPress={handleReset}>
@@ -269,12 +271,14 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    paddingBottom: 400,
   },
   card: {
-    borderRadius: 25,
-    padding: 25,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
     marginBottom: 20,
     elevation: 8,
     shadowColor: "#0d2b43",
@@ -285,40 +289,44 @@ const styles = StyleSheet.create({
     borderColor: "#a2c8e2",
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: "700",
     color: "#ffffff",
     textAlign: "right",
-    marginBottom: 10,
+    marginBottom: 3,
+    paddingHorizontal: 10,
   },
   inputGroup: {
-    marginBottom: 20,
+    paddingHorizontal: 5,
+    paddingVertical: 5,
   },
   input: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.3)",
-    borderRadius: 15,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
     color: "#fff",
     textAlign: "right",
-    fontSize: 16,
+    fontSize: 14,
   },
   themeSelector: {
     flexDirection: "row-reverse",
     justifyContent: "space-around",
     marginTop: 10,
+    marginBottom: 8,
   },
   themeBtn: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 3,
     borderColor: "rgba(255, 255, 255, 0.4)",
   },
   themeBtnActive: {
     borderColor: "#ffffff",
-    transform: [{ scale: 1.15 }],
+    transform: [{ scale: 1.08 }],
   },
   logoUploadBtn: {
     alignSelf: "center",
@@ -346,7 +354,7 @@ const styles = StyleSheet.create({
   actionCard: {
     flexDirection: "row-reverse",
     borderRadius: 20,
-    padding: 15,
+    padding: 10,
     gap: 10,
     elevation: 8,
     borderWidth: 1,
@@ -355,21 +363,21 @@ const styles = StyleSheet.create({
   btnSave: {
     flex: 1.5,
     backgroundColor: "#10b981",
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingVertical: 8,
     alignItems: "center",
     elevation: 3,
   },
   btnReset: {
     flex: 1,
     backgroundColor: "#f59e0b",
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingVertical: 8,
     alignItems: "center",
     elevation: 3,
   },
   btnText: {
     color: "#fff",
-    fontSize: 15,
+    fontSize: 14,
   },
 });

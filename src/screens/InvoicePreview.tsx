@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 
 // --- توابع کمکی ---
 const toPersianDigits = (str: string | number) => {
@@ -34,6 +34,8 @@ interface InvoicePreviewProps {
   sellerName: string;
   sellerAddress: string;
   sellerPhone: string;
+  sellerEconomicCode: string;
+  sellerLogo: string | null;
   invoiceNumber: string;
   invoiceDate: string;
   buyerName: string;
@@ -50,6 +52,8 @@ export default function InvoicePreview({
   sellerName,
   sellerAddress,
   sellerPhone,
+  sellerEconomicCode,
+  sellerLogo,
   invoiceNumber,
   invoiceDate,
   buyerName,
@@ -65,6 +69,7 @@ export default function InvoicePreview({
       <View style={styles.previewCard}>
         <View style={styles.previewHeader}>
           <View style={styles.previewHeaderCenter}>
+            {sellerLogo ? <Image source={{ uri: sellerLogo }} style={styles.sellerLogo} /> : null}
             <Text style={styles.previewTitle}>{invoiceType}</Text>
             <Text style={styles.previewSubBrand}>{sellerName}</Text>
           </View>
@@ -156,6 +161,7 @@ export default function InvoicePreview({
 
         <View style={styles.previewFooter}>
           <View style={styles.previewDivider} />
+          {sellerEconomicCode ? <Text style={styles.previewFooterText}>کد اقتصادی: {toPersianDigits(sellerEconomicCode)}</Text> : null}
           <Text style={styles.previewFooterText}>{sellerAddress}</Text>
           <Text style={styles.previewFooterText}>
             {toPersianDigits(sellerPhone)}
@@ -195,6 +201,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: "#0d2b43",
     marginBottom: 5,
+  },
+  sellerLogo: {
+    width: 56,
+    height: 56,
+    resizeMode: "contain",
+    marginBottom: 8,
   },
   previewSubBrand: {
     fontFamily: "Vazirmatn",

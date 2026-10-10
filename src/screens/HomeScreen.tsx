@@ -14,7 +14,11 @@ import * as jalaali from 'jalaali-js';
 import CustomText from '../components/CustomText';
 import { toPersianDigits } from '../utils/numberUtils';
 
-export default function HomeScreen({ onNavigate = (screen: string) => console.log(screen), customerCount = 5, isInitialized = true }) {
+export default function HomeScreen({
+  onNavigate = (screen: string) => console.log(screen),
+  customerCount = 0,
+  isInitialized = true,
+}) {
   
 const [currentDate] = useState(() => {
     const today = new Date();

@@ -13,6 +13,7 @@ import {
   toPersianDigits,formatNumber,parseNumber,convertNumberToPersianWords,
 } from "../utils/numberUtils";
 import { LinearGradient } from "expo-linear-gradient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../components/Header";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,9 +21,12 @@ import AnimatedScrollWrapper, {
   AnimatedScrollWrapperRef,
 } from "../components/AnimatedScrollWrapper";
 import InvoicePreview from "./InvoicePreview";
+import { getInvoices, saveInvoice } from "../storage/invoiceStorage";
 
 import CustomText from '../components/CustomText';
 import CustomTextInput from '../components/CustomTextInput';
+import JalaliDatePicker from '../components/JalaliDatePicker';
+import * as jalaali from 'jalaali-js';
 
 const { width } = Dimensions.get("window");
 const MAX_ROWS = 12;
@@ -75,6 +79,7 @@ const CustomDropdown = ({ label, value, options, onSelect }: any) => {
 
 export default function InvoiceScreen({
   onNavigate = (screen: string) => {},
+  onInvoiceSaved,
   initialCustomer = null,
   invoiceToEdit = null,
   customers = [
@@ -103,6 +108,7 @@ export default function InvoiceScreen({
   const [step, setStep] = useState("form");
   const [isSaving, setIsSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
 
   const PROFORMA_DEFAULT_NOTE =
     "به دلیل نوسانات بازار این پیش فاکتور تا زمان دریافت اسناد مالی قابل تغییر قیمت می‌باشد و فروشنده تضمینی در قبال مبلغ ندارد.";
@@ -116,9 +122,11 @@ export default function InvoiceScreen({
   const [invoiceNumber, setInvoiceNumber] = useState(
     invoiceToEdit?.number || "1001",
   );
-  const [invoiceDate, setInvoiceDate] = useState(
-    invoiceToEdit?.date || "1405/07/09",
-  );
+  const [invoiceDate, setInvoiceDate] = useState(() => {
+    if (invoiceToEdit?.date) return invoiceToEdit.date;
+    const today = jalaali.toJalaali(new Date());
+    return toPersianDigits(`${today.jy}/${String(today.jm).padStart(2, '0')}/${String(today.jd).padStart(2, '0')}`);
+  });
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
     initialCustomer?.id || null,
@@ -140,7 +148,7 @@ export default function InvoiceScreen({
 
   const [rows, setRows] = useState(
     invoiceToEdit?.items || [
-      { id: Date.now(), desc: "", quantity: "1", unitPrice: "" },
+      { id: Date.now(), desc: "", quantity: "", unitPrice: "" },
     ],
   );
 
@@ -155,9 +163,33 @@ export default function InvoiceScreen({
       : PROFORMA_DEFAULT_NOTE;
   });
 
-  const sellerName = "نام شرکت شما";
-  const sellerPhone = "021-12345678";
-  const sellerAddress = "تهران، خیابان مثال، پلاک ۱";
+  const [sellerName, setSellerName] = useState("");
+  const [sellerPhone, setSellerPhone] = useState("");
+  const [sellerAddress, setSellerAddress] = useState("");
+  const [sellerEconomicCode, setSellerEconomicCode] = useState("");
+  const [sellerLogo, setSellerLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadCompanySettings = async () => {
+      try {
+        const [name, phone, address, code, logo] = await AsyncStorage.multiGet([
+          "companyName",
+          "companyPhone",
+          "companyAddress",
+          "companyEconomicCode",
+          "companyLogo",
+        ]);
+        setSellerName(name[1] || "");
+        setSellerPhone(phone[1] || "");
+        setSellerAddress(address[1] || "");
+        setSellerEconomicCode(code[1] || "");
+        setSellerLogo(logo[1] || null);
+      } catch (error) {
+        console.error("Failed to load company invoice settings.", error);
+      }
+    };
+    loadCompanySettings();
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -223,12 +255,70 @@ export default function InvoiceScreen({
     }
   };
 
+  useEffect(() => {
+    if (invoiceToEdit?.number || !selectedCustomerId) return;
+
+    const customer = customers.find(
+      (item: any) => String(item.id) === String(selectedCustomerId),
+    );
+    if (!customer?.customerCode) return;
+
+    let cancelled = false;
+    const isSales = invoiceType === "فاکتور فروش" || invoiceType === "فاکتور";
+    const pattern = isSales ? /\/(\d+)$/ : /\/b\/(\d+)$/i;
+
+    getInvoices().then((savedInvoices) => {
+      let highestNumber = isSales ? 100 : 500;
+
+      for (const item of savedInvoices) {
+        if (String(item.id) === String(invoiceToEdit?.id)) continue;
+        const itemIsSales = item.type === "فاکتور فروش" || item.type === "فاکتور";
+        if (itemIsSales !== isSales) continue;
+
+        const match = String(item.number).match(pattern);
+        if (match) highestNumber = Math.max(highestNumber, Number(match[1]));
+      }
+
+      if (!cancelled) {
+        const nextNumber = highestNumber + 1;
+        setInvoiceNumber(
+          isSales
+            ? `${customer.customerCode}/${nextNumber}`
+            : `${customer.customerCode}/b/${nextNumber}`,
+        );
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCustomerId, invoiceType, customers, invoiceToEdit?.id, invoiceToEdit?.number]);
+
   const handleSaveToDatabase = async () => {
+    if (!selectedCustomerId && !buyerName.trim()) return;
+
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const invoice = {
+        id: invoiceToEdit?.id ?? `invoice-${Date.now()}`,
+        customerId: selectedCustomerId ?? `manual-${Date.now()}`,
+        type: invoiceType,
+        number: invoiceNumber,
+        date: invoiceDate,
+        amount: grandTotal,
+        note: noteText,
+        items: rows,
+        createdAt: invoiceToEdit?.createdAt ?? new Date().toISOString(),
+      };
+
+      const success = await saveInvoice(invoice);
+      if (success) {
+        onInvoiceSaved?.(invoice);
+        handleClose();
+      }
+    } finally {
       setIsSaving(false);
-      handleClose();
-    }, 1000);
+    }
   };
 
   const handleExport = (format: "pdf" | "png") => {
@@ -323,12 +413,17 @@ export default function InvoiceScreen({
                     <CustomText style={styles.label}>تاریخ فاکتور :</CustomText>
                     <View style={styles.dateInputContainer}>
                       <CustomTextInput
-                        style={[styles.input, { textAlign: "center", flex: 1 }]}
-                        placeholderTextColor="rgba(255,255,255,0.45)"
+                        style={[styles.input, { textAlign: 'right', flex: 1, paddingLeft: 44 }]}
+                        placeholderTextColor='rgba(255,255,255,0.45)'
                         value={invoiceDate}
-                        onChangeText={setInvoiceDate} // ✨ تغییر فرمت برداشته شد
+                        onChangeText={setInvoiceDate}
                       />
-                      <TouchableOpacity style={styles.dateIconWrapper}>
+                      <TouchableOpacity
+                        style={styles.dateIconWrapper}
+                        onPress={() => setIsDatePickerVisible(true)}
+                        accessibilityRole='button'
+                        accessibilityLabel='انتخاب تاریخ فاکتور'
+                      >
                         <Ionicons
                           name="calendar-outline"
                           size={20}
@@ -557,6 +652,8 @@ export default function InvoiceScreen({
               sellerName={sellerName}
               sellerAddress={sellerAddress}
               sellerPhone={sellerPhone}
+              sellerEconomicCode={sellerEconomicCode}
+              sellerLogo={sellerLogo}
               invoiceNumber={invoiceNumber}
               invoiceDate={invoiceDate}
               buyerName={buyerName}
@@ -651,6 +748,12 @@ export default function InvoiceScreen({
           )}
         </View>
       </Animated.View>
+      <JalaliDatePicker
+        visible={isDatePickerVisible}
+        initialDate={invoiceDate}
+        onSelectDate={setInvoiceDate}
+        onClose={() => setIsDatePickerVisible(false)}
+      />
     </View>
   );
 }
@@ -735,7 +838,7 @@ const styles = StyleSheet.create({
   },
   dateIconWrapper: {
     position: "absolute",
-    right: 8,
+    left: 8,
     backgroundColor: "rgba(255,255,255,0.1)",
     padding: 6,
     borderRadius: 8,

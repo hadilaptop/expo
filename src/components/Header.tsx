@@ -1,16 +1,17 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 interface HeaderProps {
-  title: string;                     // عنوان صفحه
-  subtitle?: string;                 // ✨ زیرعنوان (اختیاری) - جدید
-  onBack?: () => void;               // تابعی که با کلیک روی دکمه برگشت اجرا می‌شود
+  title: string;                     // Ø¹Ù†ÙˆØ§Ù† ØµÙØ­Ù‡
+  subtitle?: string;                 // âœ¨ Ø²ÛŒØ±Ø¹Ù†ÙˆØ§Ù† (Ø§Ø®ØªÛŒØ§Ø±ÛŒ) - Ø¬Ø¯ÛŒØ¯
+  onBack?: () => void;               // ØªØ§Ø¨Ø¹ÛŒ Ú©Ù‡ Ø¨Ø§ Ú©Ù„ÛŒÚ© Ø±ÙˆÛŒ Ø¯Ú©Ù…Ù‡ Ø¨Ø±Ú¯Ø´Øª Ø§Ø¬Ø±Ø§ Ù…ÛŒâ€ŒØ´ÙˆØ¯
   iconName?: any;                    // نام آیکون (اختیاری - پیش‌فرض: arrow-forward)
+  rightContent?: React.ReactNode;
 }
 
-export default function Header({ title, subtitle, onBack, iconName = 'arrow-forward' }: HeaderProps) {
+export default function Header({ title, subtitle, onBack, iconName = 'arrow-forward', rightContent }: HeaderProps) {
   return (
     <LinearGradient
       colors={['#0d2b43', '#0f4c75']}
@@ -20,7 +21,7 @@ export default function Header({ title, subtitle, onBack, iconName = 'arrow-forw
     >
       <View style={styles.headerInfo}>
         <Text style={styles.headerTitle}>{title}</Text>
-        {/* ✨ نمایش زیرعنوان در صورت وجود */}
+        {/* âœ¨ Ù†Ù…Ø§ÛŒØ´ Ø²ÛŒØ±Ø¹Ù†ÙˆØ§Ù† Ø¯Ø± ØµÙˆØ±Øª ÙˆØ¬ÙˆØ¯ */}
         {subtitle && (
            <Text style={styles.headerSubtitle}>{subtitle}</Text>
         )}
@@ -40,7 +41,7 @@ export default function Header({ title, subtitle, onBack, iconName = 'arrow-forw
 }
 
 const styles = StyleSheet.create({
-  // ... استایل‌های قبلی ...
+  // ... Ø§Ø³ØªØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ Ù‚Ø¨Ù„ÛŒ ...
   header: {
     flexDirection: "row-reverse",
     justifyContent: "space-between",
@@ -67,7 +68,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     textAlign: "right",
   },
-  // ✨ استایل جدید برای زیرعنوان
+  // âœ¨ Ø§Ø³ØªØ§ÛŒÙ„ Ø¬Ø¯ÛŒØ¯ Ø¨Ø±Ø§ÛŒ Ø²ÛŒØ±Ø¹Ù†ÙˆØ§Ù†
   headerSubtitle: {
     fontFamily: "Vazirmatn",
     fontSize: 13,

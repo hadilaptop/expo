@@ -1,0 +1,1508 @@
+﻿import React, { useState, useMemo, useRef, useEffect } from "react";
+import {
+  View,
+  Animated,
+  Dimensions,
+  TouchableOpacity,
+  Modal,
+  Image,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import Header from "../components/Header";
+import CustomText from "../components/CustomText";
+import CustomTextInput from "../components/CustomTextInput";
+import CustomerStatementScreen from "./CustomerStatement";
+import {
+  toPersianDigits,
+  formatNumber,
+  parseNumber,
+  getCurrentPersianDate,
+  getCustomerCode,
+} from "../utils/invoiceHelpers";
+import { Customer } from "../storage/customerStorage";
+
+type CustomerLedgerScreenProps = {
+  customer: Customer;
+  customers?: Customer[];
+  payments?: any[];
+  invoices?: any[];
+  onNavigate?: (screen: string) => void;
+  onOpenInvoice?: (
+    customer: Customer,
+    invoice?: any,
+    mode?: "preview" | "form",
+  ) => void;
+  onSavePayment?: (payment: any) => Promise<void> | void;
+  onDeletePayment?: (id: string | number) => Promise<void> | void;
+  onDeleteInvoice?: (id: string | number) => Promise<void> | void;
+};
+
+export default function CustomerLedgerScreen({
+  customer,
+  customers = [],
+  payments = [],
+  invoices = [],
+  onNavigate = () => {},
+  onOpenInvoice,
+  onSavePayment = async () => {},
+  onDeletePayment = async () => {},
+  onDeleteInvoice = async () => {},
+}: CustomerLedgerScreenProps) {
+  const [activeTab, setActiveTab] = useState<
+    "all" | "payments" | "invoices" | "proformas"
+  >("all");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [allFilters, setAllFilters] = useState({
+    payments: true,
+    invoices: true,
+    proformas: true,
+  });
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
+  const [showAllFilterMenu, setShowAllFilterMenu] = useState(false);
+
+  useEffect(() => {
+    const loadAllFilters = async () => {
+      try {
+        const savedFilters = await AsyncStorage.getItem("@hadi_factor_customer_ledger_filters");
+        if (savedFilters) {
+          const parsedFilters = JSON.parse(savedFilters);
+          if (
+            typeof parsedFilters.payments === "boolean" &&
+            typeof parsedFilters.invoices === "boolean" &&
+            typeof parsedFilters.proformas === "boolean"
+          ) {
+            setAllFilters(parsedFilters);
+          }
+        }
+      } catch (error) {
+        console.error("خطا در بارگذاری فیلترهای دفتر حساب:", error);
+      } finally {
+        setFiltersLoaded(true);
+      }
+    };
+
+    loadAllFilters();
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
+
+    AsyncStorage.setItem(
+      "@hadi_factor_customer_ledger_filters",
+      JSON.stringify(allFilters),
+    ).catch((error) => {
+      console.error("خطا در ذخیره فیلترهای دفتر حساب:", error);
+    });
+  }, [allFilters, filtersLoaded]);
+  const [expandedItems, setExpandedItems] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  const [showStatement, setShowStatement] = useState(false);
+
+  const slideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
+
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [slideAnim]);
+
+  // Modal States
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  const [paymentDate, setPaymentDate] = useState(getCurrentPersianDate());
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("نقدی");
+  const [checkDate, setCheckDate] = useState(getCurrentPersianDate());
+  const [checkNumber, setCheckNumber] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [paymentAttachment, setPaymentAttachment] = useState<string | null>(
+    null,
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<any | null>(null);
+
+  // محاسبه لیست تراکنش‌ها با مانده لحظه‌ای
+  const transactions = useMemo<any[]>(() => {
+    const custPayments = payments.filter(
+      (p) => String(p.customerId) === String(customer?.id),
+    );
+    const custInvoices = invoices.filter(
+      (i) => String(i.customerId) === String(customer?.id),
+    );
+
+    const pItems = custPayments.map((p) => ({
+      id: `p-${p.id}`,
+      originalId: p.id,
+      kind: "payment",
+      type: `دریافتی (${p.method || "نقدی"})`,
+      method: p.method || "نقدی",
+      date: p.date || "",
+      rawDate: p.createdAt || p.date || "",
+      amount: Number(p.amount || 0),
+      note: p.note || "",
+      checkDate: p.checkDate,
+      checkNumber: p.checkNumber,
+      bankName: p.bankName,
+      attachment: p.attachment,
+      isFinalized: true,
+    }));
+
+    const iItems = custInvoices.map((inv) => ({
+      id: `i-${inv.id}`,
+      originalId: inv.id,
+      kind: "invoice",
+      type: inv.type || "فاکتور",
+      number: inv.number,
+      date: inv.date || "",
+      rawDate: inv.createdAt || inv.date || "",
+      amount: Number(inv.amount || 0),
+      note: inv.note || "",
+      items: inv.items,
+      isFinalized: inv.type !== "پیش فاکتور",
+    }));
+
+    const allChronological = [...pItems, ...iItems].sort((a, b) => {
+      if (a.date && b.date && a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+      return (a.rawDate || "").localeCompare(b.rawDate || "");
+    });
+
+    let runningBalance = 0;
+    const processed = allChronological.map((item) => {
+      if (item.kind === "invoice" && item.type === "فاکتور") {
+        runningBalance += item.amount;
+      } else if (item.kind === "payment") {
+        runningBalance -= item.amount;
+      }
+      return { ...item, balanceAfter: runningBalance };
+    });
+
+    return sortOrder === "desc" ? [...processed].reverse() : processed;
+  }, [payments, invoices, customer?.id, sortOrder]);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((item) => {
+      if (activeTab === "all") {
+        if (item.kind === "payment" && !allFilters.payments) return false;
+        if (
+          item.kind === "invoice" &&
+          item.type !== "پیش فاکتور" &&
+          !allFilters.invoices
+        )
+          return false;
+        if (
+          item.kind === "invoice" &&
+          item.type === "پیش فاکتور" &&
+          !allFilters.proformas
+        )
+          return false;
+        return true;
+      }
+      if (activeTab === "payments") return item.kind === "payment";
+      if (activeTab === "invoices")
+        return item.kind === "invoice" && item.type !== "پیش فاکتور";
+      if (activeTab === "proformas")
+        return item.kind === "invoice" && item.type === "پیش فاکتور";
+      return true;
+    });
+  }, [transactions, activeTab, allFilters]);
+
+  const toggleExpand = (id: string) => {
+    setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleOpenNewPayment = () => {
+    setEditingPayment(null);
+    setPaymentAmount("");
+    setPaymentDate(getCurrentPersianDate());
+    setPaymentMethod("نقدی");
+    setBankName("");
+    setCheckDate(getCurrentPersianDate());
+    setCheckNumber("");
+    setPaymentNote("");
+    setPaymentAttachment(null);
+    setShowAddPaymentModal(true);
+  };
+
+  const handleOpenEditPayment = (item: any) => {
+    setEditingPayment(item);
+    setPaymentAmount(formatNumber(item.amount || 0));
+    setPaymentDate(item.date || getCurrentPersianDate());
+    setPaymentMethod(item.method || "نقدی");
+    setBankName(item.bankName || "");
+    setCheckDate(item.checkDate || getCurrentPersianDate());
+    setCheckNumber(item.checkNumber || "");
+    setPaymentNote(item.note || "");
+    setPaymentAttachment(item.attachment || null);
+    setShowAddPaymentModal(true);
+  };
+
+  const handlePickAttachment = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]?.base64) {
+      setPaymentAttachment(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    }
+  };
+
+  const handleSavePaymentSubmit = async () => {
+    const numericAmount = parseNumber(paymentAmount);
+    if (!numericAmount || numericAmount <= 0) {
+      Alert.alert("خطا", "لطفاً مبلغ دریافتی معتبری وارد کنید.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const paymentData = {
+        id: editingPayment ? editingPayment.originalId : Date.now().toString(),
+        customerId: customer.id,
+        date: paymentDate.trim() || getCurrentPersianDate(),
+        amount: numericAmount,
+        method: paymentMethod,
+        bankName: bankName.trim(),
+        checkDate: paymentMethod === "چک" ? checkDate : "",
+        checkNumber: paymentMethod === "چک" ? checkNumber.trim() : "",
+        note: paymentNote.trim(),
+        attachment: paymentAttachment || "",
+        createdAt: editingPayment?.rawDate || new Date().toISOString(),
+      };
+
+      await onSavePayment(paymentData);
+      setShowAddPaymentModal(false);
+    } catch (error) {
+      Alert.alert("خطا", "خطا در ثبت یا ویرایش دریافتی.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmItem) return;
+    try {
+      if (deleteConfirmItem.kind === "payment") {
+        await onDeletePayment(deleteConfirmItem.originalId);
+      } else if (deleteConfirmItem.kind === "invoice") {
+        await onDeleteInvoice(deleteConfirmItem.originalId);
+      }
+      setDeleteConfirmItem(null);
+    } catch (error) {
+      Alert.alert("خطا", "خطا در حذف آیتم.");
+    }
+  };
+
+  if (!customer) {
+    return (
+      <View style={styles.container}>
+        <Header
+          title="گردش حساب مشتری"
+          onBack={() => onNavigate("customers")}
+          iconName="arrow-back"
+        />
+        <View style={styles.notFoundContainer}>
+          <CustomText style={styles.notFoundText}>
+            مشتری مورد نظر یافت نشد.
+          </CustomText>
+        </View>
+      </View>
+    );
+  }
+
+  if (showStatement) {
+    return (
+      <CustomerStatementScreen
+        customer={customer}
+        payments={payments}
+        invoices={invoices}
+        onBack={() => setShowStatement(false)}
+        onNavigate={onNavigate}
+      />
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <Header
+        title={customer.name}
+        subtitle={`کد مشتری: ${toPersianDigits(getCustomerCode(customer, customers))}`}
+        onBack={() => onNavigate("customers")}
+        iconName="arrow-back"
+        rightContent={
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={handleOpenNewPayment}
+            >
+              <Ionicons name="cash-outline" size={20} color="#ffffff" />
+            </TouchableOpacity>
+            {onOpenInvoice && (
+              <TouchableOpacity
+                style={styles.headerBtn}
+                onPress={() => onOpenInvoice(customer)}
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={20}
+                  color="#ffffff"
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        }
+      />
+
+      {/* Filter & Tabs Bar */}
+      <Animated.View style={[styles.filterBar, { transform: [{ translateX: slideAnim }] }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabsContainer}
+          style={{ direction: "rtl" }}
+        >
+          <TouchableOpacity
+            style={[
+              styles.tabBtn,
+              styles.tabGroup,
+              activeTab === "all" && styles.tabBtnActive,
+            ]}
+            onPress={() => {
+              setActiveTab("all");
+              setShowAllFilterMenu((prev) => !prev);
+            }}
+          >
+            <Ionicons name="filter-outline" size={16} color="#ffffff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabBtn,
+              activeTab === "payments" && styles.tabBtnActive,
+            ]}
+            onPress={() => {
+              setActiveTab("payments");
+              setShowAllFilterMenu(false);
+            }}
+          >
+            <CustomText style={styles.tabText}>دریافتی</CustomText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabBtn,
+              activeTab === "invoices" && styles.tabBtnActive,
+            ]}
+            onPress={() => {
+              setActiveTab("invoices");
+              setShowAllFilterMenu(false);
+            }}
+          >
+            <CustomText style={styles.tabText}>فاکتور فروش</CustomText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabBtn,
+              activeTab === "proformas" && styles.tabBtnActive,
+            ]}
+            onPress={() => {
+              setActiveTab("proformas");
+              setShowAllFilterMenu(false);
+            }}
+          >
+            <CustomText style={styles.tabText}>پیش فاکتور</CustomText>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <TouchableOpacity
+          style={styles.sortBtn}
+          onPress={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+        >
+          <Ionicons name="swap-vertical" size={22} color="#ffffff" />
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* All Filters Dropdown Menu */}
+      {showAllFilterMenu && (
+        <Pressable
+          style={styles.filterBackdrop}
+          onPress={() => setShowAllFilterMenu(false)}
+        />
+      )}
+      {showAllFilterMenu && (
+        <View style={styles.allFiltersDropdown}>
+          <TouchableOpacity
+            style={[
+              styles.filterOption,
+              allFilters.payments && styles.filterOptionSelected,
+            ]}
+            onPress={() => {
+              setAllFilters((p) => ({ ...p, payments: !p.payments }));
+            }}
+          >
+            <CustomText style={styles.filterOptionText}>دریافتی</CustomText>
+            {allFilters.payments && (
+              <Ionicons name="checkmark" size={18} color="#10b981" />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterOption,
+              allFilters.invoices && styles.filterOptionSelected,
+            ]}
+            onPress={() => {
+              setAllFilters((p) => ({ ...p, invoices: !p.invoices }));
+            }}
+          >
+            <CustomText style={styles.filterOptionText}>فاکتور فروش</CustomText>
+            {allFilters.invoices && (
+              <Ionicons name="checkmark" size={18} color="#10b981" />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterOption,
+              allFilters.proformas && styles.filterOptionSelected,
+            ]}
+            onPress={() => {
+              setAllFilters((p) => ({ ...p, proformas: !p.proformas }));
+            }}
+          >
+            <CustomText style={styles.filterOptionText}>پیش فاکتور</CustomText>
+            {allFilters.proformas && (
+              <Ionicons name="checkmark" size={18} color="#10b981" />
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Transactions List */}
+      <Animated.ScrollView
+        style={[styles.listContainer, { transform: [{ translateX: slideAnim }] }]}
+        contentContainerStyle={styles.listContent}
+      >
+        {filteredTransactions.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <CustomText style={styles.emptyText}>
+              هیچ تراکنشی برای این مشتری یافت نشد.
+            </CustomText>
+          </View>
+        ) : (
+          filteredTransactions.map((item) => {
+            const isInvoice = item.kind === "invoice";
+            const isProforma = isInvoice && item.type === "پیش فاکتور";
+            const isPayment = item.kind === "payment";
+            const isExpanded = !!expandedItems[item.id];
+            const isMenuOpen = openMenuId === item.id;
+
+            return (
+              <View key={item.id} style={styles.card}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.cardMainRow}
+                  onPress={() => toggleExpand(item.id)}
+                >
+                  <View style={styles.cardContent}>
+                    <View style={styles.dateCol}>
+                      <CustomText style={styles.dateText}>
+                        {toPersianDigits(item.date)}
+                      </CustomText>
+                      {isInvoice && item.number && (
+                        <View
+                          style={[
+                            styles.invNumBadge,
+                            isProforma
+                              ? styles.badgeProforma
+                              : styles.badgeInvoice,
+                          ]}
+                        >
+                          <CustomText style={styles.invNumText}>
+                            {toPersianDigits(item.number)}
+                          </CustomText>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.typeCol}>
+                      <View
+                        style={[
+                          styles.typeBadge,
+                          isProforma
+                            ? styles.badgeProforma
+                            : isInvoice
+                              ? styles.badgeInvoice
+                              : styles.badgePayment,
+                        ]}
+                      >
+                        <CustomText
+                          style={[
+                            styles.typeBadgeText,
+                            isProforma
+                              ? styles.badgeProformaText
+                              : isInvoice
+                                ? styles.badgeInvoiceText
+                                : styles.badgePaymentText,
+                          ]}
+                        >
+                          {isProforma
+                            ? "📋 پیش‌ فاکتور"
+                            : isInvoice
+                              ? "📄 فاکتور فروش"
+                              : `💵 ${item.method || "نقدی"}`}
+                        </CustomText>
+                      </View>
+                      {isProforma && (
+                        <View style={styles.nonBindingTag}>
+                          <CustomText style={styles.nonBindingText}>
+                            غیر مالی
+                          </CustomText>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Actions Column */}
+                  <View style={styles.actionsCol}>
+                    <TouchableOpacity
+                      style={styles.accordionArrow}
+                      onPress={() => toggleExpand(item.id)}
+                    >
+                      <Ionicons
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={18}
+                        color="#cbd5e1"
+                      />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.menuTrigger}
+                      onPress={() => setOpenMenuId(isMenuOpen ? null : item.id)}
+                    >
+                      <Ionicons
+                        name="ellipsis-vertical"
+                        size={20}
+                        color="#cbd5e1"
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Action Menu Dropdown */}
+                  {isMenuOpen && (
+                    <View style={styles.cardMenu}>
+                      {isPayment ? (
+                        <TouchableOpacity
+                          style={styles.cardMenuItem}
+                          onPress={() => {
+                            setOpenMenuId(null);
+                            const orig = payments.find(
+                              (p) => String(p.id) === String(item.originalId),
+                            );
+                            handleOpenEditPayment(orig || item);
+                          }}
+                        >
+                          <Ionicons
+                            name="create-outline"
+                            size={18}
+                            color="#ffffff"
+                          />
+                          <CustomText style={styles.menuText}>
+                            ویرایش دریافتی
+                          </CustomText>
+                        </TouchableOpacity>
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            style={styles.cardMenuItem}
+                            onPress={() => {
+                              setOpenMenuId(null);
+                              onOpenInvoice?.(customer, item, "preview");
+                            }}
+                          >
+                            <Ionicons
+                              name="eye-outline"
+                              size={18}
+                              color="#ffffff"
+                            />
+                            <CustomText style={styles.menuText}>
+                              نمایش فاکتور
+                            </CustomText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.cardMenuItem}
+                            onPress={() => {
+                              setOpenMenuId(null);
+                              const orig = invoices.find(
+                                (i) => String(i.id) === String(item.originalId),
+                              );
+                              onOpenInvoice?.(customer, orig || item, "form");
+                            }}
+                          >
+                            <Ionicons
+                              name="create-outline"
+                              size={18}
+                              color="#ffffff"
+                            />
+                            <CustomText style={styles.menuText}>
+                              ویرایش فاکتور
+                            </CustomText>
+                          </TouchableOpacity>
+                        </>
+                      )}
+
+                      <TouchableOpacity
+                        style={[styles.cardMenuItem, { borderBottomWidth: 0 }]}
+                        onPress={() => {
+                          setOpenMenuId(null);
+                          setDeleteConfirmItem(item);
+                        }}
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color="#ff5c5c"
+                        />
+                        <CustomText
+                          style={[styles.menuText, { color: "#ff5c5c" }]}
+                        >
+                          حذف
+                        </CustomText>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <View style={styles.expandedBody}>
+                    {isPayment && (
+                      <View style={styles.detailsBox}>
+                        <View style={styles.detailRowBetween}>
+                          <CustomText style={styles.detailLabel}>
+                            مبلغ دریافتی:
+                          </CustomText>
+                          <CustomText style={styles.amountValue}>
+                            {toPersianDigits(formatNumber(item.amount))} ریال
+                          </CustomText>
+                        </View>
+                        {(item.method === "چک" ||
+                          item.bankName ||
+                          item.checkNumber) && (
+                          <View style={styles.checkSubDetails}>
+                            {!!item.bankName && (
+                              <CustomText style={styles.subDetailText}>
+                                🏦 بانک: {item.bankName}
+                              </CustomText>
+                            )}
+                            {!!item.checkNumber && (
+                              <CustomText style={styles.subDetailText}>
+                                🔢 شماره چک: {toPersianDigits(item.checkNumber)}
+                              </CustomText>
+                            )}
+                            {!!item.checkDate && (
+                              <CustomText style={styles.subDetailText}>
+                                📆 تاریخ سررسید:{" "}
+                                {toPersianDigits(item.checkDate)}
+                              </CustomText>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {isInvoice && (
+                      <View style={styles.miniInvoiceBox}>
+                        <View style={styles.miniHeader}>
+                          <CustomText style={[styles.miniCol, { flex: 2 }]}>
+                            شرح کالا
+                          </CustomText>
+                          <CustomText
+                            style={[
+                              styles.miniCol,
+                              { flex: 1, textAlign: "center" },
+                            ]}
+                          >
+                            تعداد
+                          </CustomText>
+                          <CustomText
+                            style={[
+                              styles.miniCol,
+                              { flex: 1.5, textAlign: "left" },
+                            ]}
+                          >
+                            مبلغ (ریال)
+                          </CustomText>
+                        </View>
+                        {Array.isArray(item.items) && item.items.length > 0 ? (
+                          item.items.map((it: any, idx: number) => (
+                            <View key={idx} style={styles.miniRow}>
+                              <CustomText
+                                style={[styles.miniCell, { flex: 2 }]}
+                              >
+                                {typeof it === "object" ? it.desc : it}
+                              </CustomText>
+                              <CustomText
+                                style={[
+                                  styles.miniCell,
+                                  { flex: 1, textAlign: "center" },
+                                ]}
+                              >
+                                {toPersianDigits(
+                                  typeof it === "object" ? it.quantity : "1",
+                                )}
+                              </CustomText>
+                              <CustomText
+                                style={[
+                                  styles.miniCell,
+                                  { flex: 1.5, textAlign: "left" },
+                                ]}
+                              >
+                                {typeof it === "object" && it.unitPrice
+                                  ? toPersianDigits(formatNumber(it.unitPrice))
+                                  : "-"}
+                              </CustomText>
+                            </View>
+                          ))
+                        ) : (
+                          <View style={styles.miniRow}>
+                            <CustomText style={styles.miniCell}>
+                              بدون قلم کالا
+                            </CustomText>
+                          </View>
+                        )}
+                        <View style={styles.miniFooter}>
+                          <CustomText style={styles.miniFooterLabel}>
+                            جمع کل:
+                          </CustomText>
+                          <CustomText style={styles.miniFooterVal}>
+                            {toPersianDigits(formatNumber(item.amount))} ریال
+                          </CustomText>
+                        </View>
+                      </View>
+                    )}
+
+                    {!!item.note && (
+                      <View style={styles.noteBox}>
+                        <CustomText style={styles.noteText}>
+                          📝 توضیحات: {toPersianDigits(item.note)}
+                        </CustomText>
+                      </View>
+                    )}
+
+                    {!!item.attachment && (
+                      <TouchableOpacity
+                        style={styles.attachmentBox}
+                        onPress={() => setSelectedImage(item.attachment)}
+                      >
+                        <Image
+                          source={{ uri: item.attachment }}
+                          style={styles.attachmentImage}
+                        />
+                        <View style={styles.zoomIconOverlay}>
+                          <Ionicons name="search" size={20} color="#ffffff" />
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })
+        )}
+      </Animated.ScrollView>
+
+      {/* Floating Statement Circular Button */}
+      <View style={styles.bottomBar}>
+        <View style={styles.bottomActionsCard}>
+          <TouchableOpacity
+            style={styles.statementCircleBtn}
+            onPress={() => setShowStatement(true)}
+          >
+            <Ionicons name="analytics" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Modal: Add/Edit Payment */}
+      <Modal visible={showAddPaymentModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <LinearGradient
+            colors={["#0d2b43", "#0f4c75"]}
+            style={styles.paymentModalBox}
+          >
+            <View style={styles.modalHeader}>
+              <CustomText style={styles.modalHeaderTitle}>
+                {editingPayment ? `ویرایش دریافتی` : `ثبت دریافتی جدید`}
+              </CustomText>
+              <TouchableOpacity onPress={() => setShowAddPaymentModal(false)}>
+                <Ionicons name="close" size={24} color="#cbd5e1" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 400 }}>
+              <CustomText style={styles.inputLabel}>
+                مبلغ دریافتی (ریال) *
+              </CustomText>
+              <CustomTextInput
+                style={styles.modalInput}
+                placeholder="مثال: ۱,۵۰۰,۰۰۰"
+                keyboardType="numeric"
+                value={paymentAmount}
+                onChangeText={(text) => {
+                  const num = parseNumber(text);
+                  setPaymentAmount(num ? formatNumber(num) : "");
+                }}
+              />
+
+              <CustomText style={styles.inputLabel}>تاریخ دریافت *</CustomText>
+              <CustomTextInput
+                style={styles.modalInput}
+                placeholder="۱۴۰۳/۰۵/۱۵"
+                value={paymentDate}
+                onChangeText={setPaymentDate}
+              />
+
+              <CustomText style={styles.inputLabel}>روش دریافت</CustomText>
+              <View style={styles.pillsGrid}>
+                {["نقدی", "کارت به کارت", "واریز به حساب", "چک", "سایر"].map(
+                  (m) => (
+                    <TouchableOpacity
+                      key={m}
+                      style={[
+                        styles.pill,
+                        paymentMethod === m && styles.pillActive,
+                      ]}
+                      onPress={() => setPaymentMethod(m)}
+                    >
+                      <CustomText
+                        style={[
+                          styles.pillText,
+                          paymentMethod === m && styles.pillTextActive,
+                        ]}
+                      >
+                        {m}
+                      </CustomText>
+                    </TouchableOpacity>
+                  ),
+                )}
+              </View>
+
+              {paymentMethod === "چک" && (
+                <View style={styles.checkSection}>
+                  <CustomText style={styles.inputLabel}>شماره چک</CustomText>
+                  <CustomTextInput
+                    style={styles.modalInput}
+                    placeholder="شماره چک / صیادی"
+                    value={checkNumber}
+                    onChangeText={setCheckNumber}
+                  />
+
+                  <CustomText style={styles.inputLabel}>نام بانک</CustomText>
+                  <CustomTextInput
+                    style={styles.modalInput}
+                    placeholder="مثال: بانک ملی"
+                    value={bankName}
+                    onChangeText={setBankName}
+                  />
+
+                  <CustomText style={styles.inputLabel}>
+                    تاریخ سررسید
+                  </CustomText>
+                  <CustomTextInput
+                    style={styles.modalInput}
+                    placeholder="۱۴۰۳/۰۶/۲۰"
+                    value={checkDate}
+                    onChangeText={setCheckDate}
+                  />
+                </View>
+              )}
+
+              <CustomText style={styles.inputLabel}>توضیحات / بابت</CustomText>
+              <TextInput
+                style={[styles.modalInput, styles.textArea]}
+                placeholder="توضیحات..."
+                placeholderTextColor="#94a3b8"
+                multiline
+                numberOfLines={3}
+                value={paymentNote}
+                onChangeText={setPaymentNote}
+              />
+
+              <CustomText style={styles.inputLabel}>پیوست تصویر سند</CustomText>
+              {paymentAttachment ? (
+                <View style={styles.attPreviewBox}>
+                  <Image
+                    source={{ uri: paymentAttachment }}
+                    style={styles.attImage}
+                  />
+                  <TouchableOpacity
+                    style={styles.removeAttBtn}
+                    onPress={() => setPaymentAttachment(null)}
+                  >
+                    <CustomText style={styles.removeAttText}>
+                      🗑️ حذف تصویر
+                    </CustomText>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.fileDropzone}
+                  onPress={handlePickAttachment}
+                >
+                  <Ionicons name="camera-outline" size={22} color="#38bdf8" />
+                  <CustomText style={styles.dropzoneText}>
+                    انتخاب عکس فیش یا چک
+                  </CustomText>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => setShowAddPaymentModal(false)}
+              >
+                <CustomText style={styles.cancelBtnText}>انصراف</CustomText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.submitBtn]}
+                onPress={handleSavePaymentSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <CustomText style={styles.submitBtnText}>
+                    ثبت دریافتی
+                  </CustomText>
+                )}
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+      </Modal>
+
+      {/* Lightbox Modal */}
+      <Modal visible={!!selectedImage} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.lightboxBox}>
+            <TouchableOpacity
+              style={styles.lightboxClose}
+              onPress={() => setSelectedImage(null)}
+            >
+              <Ionicons name="close-circle" size={32} color="#ffffff" />
+            </TouchableOpacity>
+            {selectedImage && (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.lightboxImage}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal visible={!!deleteConfirmItem} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <LinearGradient
+            colors={["#0d2b43", "#0f4c75"]}
+            style={styles.confirmBox}
+          >
+            <View style={styles.confirmIconBg}>
+              <Ionicons name="trash-outline" size={32} color="#ff5c5c" />
+            </View>
+            <CustomText style={styles.confirmTitle}>
+              تایید حذف تراکنش
+            </CustomText>
+            <CustomText style={styles.confirmText}>
+              آیا از حذف این تراکنش مطمئن هستید؟ این عمل قابل بازگشت نیست.
+            </CustomText>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => setDeleteConfirmItem(null)}
+              >
+                <CustomText style={styles.cancelBtnText}>انصراف</CustomText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.dangerBtn]}
+                onPress={handleConfirmDelete}
+              >
+                <CustomText style={styles.dangerBtnText}>
+                  بله، حذف شود
+                </CustomText>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#eaf6fc",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  headerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  filterBar: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#3282b8",
+    marginHorizontal: 15,
+    marginTop: 10,
+    marginBottom: 5,
+    padding: 6,
+    borderRadius: 12,
+    zIndex: 2,
+    elevation: 2,
+  },  tabsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  tabGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 10,
+     paddingVertical: 10,
+  },
+  tabBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  tabBtnActive: {
+    backgroundColor: "#10b981",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ffffff",
+    borderStyle: "solid",
+  },
+  tabText: {
+    color: "#ffffff",
+    fontSize: 13,
+  },
+  filterArrowBtn: {
+    padding: 6,
+  },
+  sortBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ffffff",
+    borderStyle: "solid",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  filterBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+    elevation: 1,
+  },
+  allFiltersDropdown: {
+    zIndex: 3,
+    elevation: 3,
+    backgroundColor: "#0f4c75",
+    marginHorizontal: 15,
+    padding: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#a2c8e2",
+  },  filterOption: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  filterOptionSelected: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  filterOptionText: {
+    color: "#ffffff",
+    fontSize: 13,
+  },
+  listContainer: {
+    flex: 1,
+    paddingHorizontal: 15,
+  },
+  listContent: {
+    paddingBottom: 90,
+  },
+  emptyBox: {
+    padding: 40,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#0f4c75",
+    fontSize: 14,
+  },
+  card: {
+    backgroundColor: "#0f4c75",
+    borderRadius: 14,
+    marginBottom: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#09bcbc",
+  },
+  cardMainRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  cardContent: {
+    flexDirection: "row-reverse",
+    gap: 10,
+    flex: 1,
+  },
+  dateCol: {
+    alignItems: "center",
+  },
+  dateText: {
+    color: "#ffffff",
+    fontSize: 13,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  invNumBadge: {
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  invNumText: {
+    fontSize: 11,
+    color: "#075985",
+  },
+  typeCol: {
+    gap: 4,
+  },
+  typeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  typeBadgeText: {
+    fontSize: 13,
+  },
+  badgeInvoice: { backgroundColor: "#e0f2fe" },
+  badgeInvoiceText: { color: "#075985" },
+  badgePayment: {
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: 1,
+    borderColor: "#52dc45",
+  },
+  badgePaymentText: { color: "#ffffff" },
+  badgeProforma: { backgroundColor: "#fffcee" },
+  badgeProformaText: { color: "#3e3b04" },
+  nonBindingTag: {
+    backgroundColor: "#fef3c7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  nonBindingText: {
+    color: "#92400e",
+    fontSize: 10,
+  },
+  actionsCol: {
+    alignItems: "center",
+    gap: 4,
+  },
+  accordionArrow: {
+    padding: 4,
+  },
+  menuTrigger: {
+    padding: 4,
+  },
+  cardMenu: {
+    position: "absolute",
+    top: 30,
+    left: 10,
+    backgroundColor: "#0f4c75",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e2e5e8",
+    zIndex: 100,
+    minWidth: 160,
+    elevation: 10,
+    padding: 2,
+  },
+  cardMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#778ca1",
+  },
+  menuText: {
+    color: "#ffffff",
+    fontSize: 12,
+  },
+  expandedBody: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.15)",
+    gap: 8,
+  },
+  detailsBox: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    padding: 10,
+    borderRadius: 8,
+  },
+  detailRowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  detailLabel: { color: "#cbd5e1", fontSize: 12 },
+  amountValue: { color: "#38ef7d", fontSize: 13 },
+  checkSubDetails: { marginTop: 6, gap: 4 },
+  subDetailText: { color: "#cbd5e1", fontSize: 11 },
+  miniInvoiceBox: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    padding: 8,
+  },
+  miniHeader: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderColor: "#cbd5e1",
+    paddingBottom: 4,
+  },
+  miniCol: { fontSize: 11, color: "#475569" },
+  miniRow: {
+    flexDirection: "row",
+    paddingVertical: 4,
+    borderBottomWidth: 0.5,
+    borderColor: "#e2e8f0",
+  },
+  miniCell: { fontSize: 11, color: "#334155" },
+  miniFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 6,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderColor: "#bae6fd",
+  },
+  miniFooterLabel: { fontSize: 11, color: "#0369a1" },
+  miniFooterVal: { fontSize: 11, color: "#0369a1" },
+  noteBox: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    padding: 8,
+    borderRadius: 8,
+  },
+  noteText: { color: "#cbd5e1", fontSize: 11 },
+  attachmentBox: {
+    width: 100,
+    height: 80,
+    borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+    alignSelf: "center",
+  },
+  attachmentImage: { width: "100%", height: "100%" },
+  zoomIconOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bottomBar: {
+    position: "absolute",
+    bottom: 25,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  bottomActionsCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 30,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: "#3282b8",
+    elevation: 8,
+  },
+  statementCircleBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#0f4c75",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notFoundContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notFoundText: { color: "#0d2b43", fontSize: 16 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  paymentModalBox: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#2e557c",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  modalHeaderTitle: { color: "#ffffff", fontSize: 15 },
+  inputLabel: { color: "#cbd5e1", fontSize: 12, marginTop: 8, marginBottom: 4 },
+  modalInput: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 42,
+    color: "#ffffff",
+    fontSize: 13,
+    textAlign: "right",
+  },
+  textArea: { height: 70, textAlignVertical: "top", paddingTop: 8 },
+  pillsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginVertical: 6,
+  },
+  pill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  pillActive: { backgroundColor: "#10b981" },
+  pillText: { color: "#cbd5e1", fontSize: 11 },
+  pillTextActive: { color: "#ffffff" },
+  checkSection: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    padding: 8,
+    borderRadius: 8,
+    marginVertical: 6,
+  },
+  attPreviewBox: { alignItems: "center", marginVertical: 8 },
+  attImage: { width: 120, height: 90, borderRadius: 8 },
+  removeAttBtn: { marginTop: 6 },
+  removeAttText: { color: "#ff5c5c", fontSize: 11 },
+  fileDropzone: {
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#38bdf8",
+    borderRadius: 8,
+    padding: 15,
+    alignItems: "center",
+    gap: 6,
+    marginVertical: 8,
+  },
+  dropzoneText: { color: "#38bdf8", fontSize: 12 },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 15 },
+  modalBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cancelBtn: { borderWidth: 1, borderColor: "#2e557c" },
+  cancelBtnText: { color: "#dee1e4", fontSize: 13 },
+  submitBtn: { backgroundColor: "#10b981" },
+  submitBtnText: { color: "#ffffff", fontSize: 13 },
+  dangerBtn: { backgroundColor: "#ff5c5c" },
+  dangerBtnText: { color: "#ffffff", fontSize: 13 },
+  confirmBox: {
+    width: "90%",
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+  },
+  confirmIconBg: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(255, 92, 92, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  confirmTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    marginBottom: 6,
+  },
+  confirmText: {
+    color: "#aab7c8",
+    fontSize: 12,
+    textAlign: "center",
+    marginBottom: 15,
+  },
+  lightboxBox: {
+    width: "100%",
+    height: "80%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  lightboxClose: { position: "absolute", top: -40, right: 10, zIndex: 10 },
+  lightboxImage: { width: "100%", height: "100%", resizeMode: "contain" },
+});

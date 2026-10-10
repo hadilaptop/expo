@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   StatusBar,
@@ -15,6 +15,8 @@ import AccountScreen from './src/screens/AccountScreen';
 import CustomersScreen from './src/screens/CustomersScreen';
 import InvoicesScreen from './src/screens/InvoiceScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import CustomerLedger from './src/screens/CustomerLedger';
+import CustomerStatement from './src/screens/CustomerStatement';
 
 import BottomNav from './src/components/BottomNav';
 
@@ -25,6 +27,8 @@ import {
   deleteCustomer,
 } from './src/storage/customerStorage';
 
+import { getInvoices, deleteInvoice, StoredInvoice } from './src/storage/invoiceStorage';
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('dashboard');
 
@@ -32,9 +36,11 @@ export default function App() {
 
   // لیست مشتری‌های واقعی برنامه
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [invoices, setInvoices] = useState<StoredInvoice[]>([]);
 
   // مشتری‌ای که قرار است ویرایش شود
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   // مشخص می‌کند اطلاعات مشتری‌ها از حافظه خوانده شده یا نه
   const [customersLoaded, setCustomersLoaded] = useState(false);
@@ -51,8 +57,7 @@ export default function App() {
     async function setupNavBar() {
       if (Platform.OS === 'android') {
         try {
-          await NavigationBar.setBackgroundColorAsync('#0d2b43');
-          await NavigationBar.setButtonStyleAsync('light');
+          NavigationBar.setStyle('dark');
         } catch (error) {
           console.log('Navigation Bar Error:', error);
         }
@@ -62,8 +67,10 @@ export default function App() {
     async function loadCustomers() {
       try {
         const savedCustomers = await getCustomers();
+        const savedInvoices = await getInvoices();
 
         setCustomers(savedCustomers);
+        setInvoices(savedInvoices);
       } catch (error) {
         console.error('خطا در بارگذاری مشتری‌ها:', error);
       } finally {
@@ -113,6 +120,27 @@ export default function App() {
     }
   };
 
+  const handleSaveInvoice = (invoice: StoredInvoice) => {
+    setInvoices((currentInvoices) => {
+      const index = currentInvoices.findIndex(
+        (item) => String(item.id) === String(invoice.id),
+      );
+      if (index === -1) return [...currentInvoices, invoice];
+      const updatedInvoices = [...currentInvoices];
+      updatedInvoices[index] = invoice;
+      return updatedInvoices;
+    });
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string | number) => {
+    const success = await deleteInvoice(invoiceId);
+    if (success) {
+      setInvoices((currentInvoices) =>
+        currentInvoices.filter((item) => String(item.id) !== String(invoiceId)),
+      );
+    }
+  };
+
   /**
    * حذف مشتری
    */
@@ -153,18 +181,30 @@ export default function App() {
    * همین تابع به آن صفحه متصل می‌شود.
    */
   const handleSelectCustomerLedger = (customer: Customer) => {
-    console.log('Selected customer:', customer);
+    setSelectedCustomer(customer);
+    setCurrentScreen('customerLedger');
   };
 
   const renderScreen = () => {
     switch (currentScreen) {
       case 'dashboard':
-        return <HomeScreen onNavigate={setCurrentScreen} />;
+        return (
+          <HomeScreen
+            onNavigate={setCurrentScreen}
+            customerCount={customers.length}
+            isInitialized={customersLoaded}
+          />
+        );
 
       case 'newAccount':
         return (
           <AccountScreen
-            onNavigate={setCurrentScreen}
+            onNavigate={(screen: string) => {
+              if (screen !== 'newAccount') {
+                setCustomerToEdit(null);
+              }
+              setCurrentScreen(screen);
+            }}
             onSave={handleSaveCustomer}
             customerToEdit={customerToEdit}
             existingCustomers={customers}
@@ -182,8 +222,40 @@ export default function App() {
           />
         );
 
+      case 'customerLedger':
+        return (
+          selectedCustomer ? (
+            <CustomerLedger
+              customer={selectedCustomer}
+              invoices={invoices}
+              onDeleteInvoice={handleDeleteInvoice}
+              onNavigate={setCurrentScreen}
+              onOpenInvoice={(customer) => {
+                setSelectedCustomer(customer);
+                setCurrentScreen('invoice');
+              }}
+            />
+          ) : null
+        );
+
+      case 'customerStatement':
+        return selectedCustomer ? (
+          <CustomerStatement
+            customer={selectedCustomer}
+            onBack={() => setCurrentScreen('customerLedger')}
+            onNavigate={setCurrentScreen}
+          />
+        ) : null;
+
       case 'invoice':
-        return <InvoicesScreen onNavigate={setCurrentScreen} />;
+        return (
+          <InvoicesScreen
+            onNavigate={setCurrentScreen}
+            initialCustomer={selectedCustomer}
+            customers={customers}
+            onInvoiceSaved={handleSaveInvoice}
+          />
+        );
 
       case 'settings':
         return <SettingsScreen onNavigate={setCurrentScreen} />;
