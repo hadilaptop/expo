@@ -21,9 +21,10 @@ import { toPersianDigits } from '../utils/numberUtils';
 
 interface SettingsScreenProps {
   onNavigate: (screen: string) => void;
+  returnScreen: string;
 }
 
-export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
+export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScreenProps) {
   const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
 
   const [theme, setTheme] = useState("blue");
@@ -58,7 +59,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
 
   const handleClose = () => {
     scrollRef.current?.close(() => {
-      onNavigate("dashboard");
+      onNavigate(returnScreen);
     });
   };
 

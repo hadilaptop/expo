@@ -27,6 +27,7 @@ export default function AccountScreen({
   onSave = async (data: any) => true,
   customerToEdit = null,
   existingCustomers = [],
+  returnScreen = "dashboard",
 }: any) {
   const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
   const [customerName, setCustomerName] = useState(customerToEdit?.name || "");
@@ -60,7 +61,7 @@ export default function AccountScreen({
 
   const handleClose = () => {
     scrollRef.current?.close(() => {
-      onNavigate("dashboard");
+      onNavigate(returnScreen);
     });
   };
 
@@ -136,9 +137,12 @@ export default function AccountScreen({
   return (
    <View style={styles.overlay}>
 {/* هدر صفحه */}
-      <Header 
-        title={customerToEdit ? "ویرایش حساب" : "ثبت حساب جدید"}
-        subtitle={customerToEdit ? `کد مشتری: ${toPersianDigits(customerToEdit.customerCode ?? customerToEdit.id ?? "۱")}` : undefined}
+      <Header
+        title={
+          customerToEdit
+            ? `ویرایش حساب - کد مشتری: ${toPersianDigits(customerToEdit.customerCode ?? customerToEdit.id ?? "۱")}`
+            : "ثبت حساب جدید"
+        }
         onBack={handleClose}
         iconName="arrow-back"
       />

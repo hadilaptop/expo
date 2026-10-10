@@ -8,6 +8,9 @@ import {
   Platform,
   ActivityIndicator,
   KeyboardAvoidingView,
+  ScrollView,
+  FlatList,
+  Modal,
 } from "react-native";
 import {
   toPersianDigits,formatNumber,parseNumber,convertNumberToPersianWords,
@@ -31,48 +34,33 @@ import * as jalaali from 'jalaali-js';
 const { width } = Dimensions.get("window");
 const MAX_ROWS = 12;
 
-const CustomDropdown = ({ label, value, options, onSelect }: any) => {
-  const [isOpen, setIsOpen] = useState(false);
+const CustomDropdown = ({ label, value, options, selectedValue, onSelect, isOpen, onOpenChange }: any) => {
   return (
-    <View
-      style={[
-        styles.inputGroup,
-        { zIndex: isOpen ? 1000 : 1, elevation: isOpen ? 10 : 1 },
-      ]}
-    >
+    <View style={styles.inputGroup}>
       {label && <CustomText style={styles.label}>{label}</CustomText>}
-      <TouchableOpacity
-        style={[
-          styles.input,
-          styles.dropdownTrigger,
-          isOpen && styles.inputFocused,
-        ]}
-        onPress={() => setIsOpen(!isOpen)}
-        activeOpacity={0.8}
-      >
-        <CustomText style={styles.dropdownTriggerText}>{value}</CustomText>
-        <Ionicons
-          name={isOpen ? "chevron-up" : "chevron-down"}
-          size={20}
-          color="#fff"
-        />
+      <TouchableOpacity style={[styles.input, styles.dropdownTrigger, isOpen && styles.inputFocused]} onPress={() => onOpenChange(!isOpen)} activeOpacity={0.8}>
+        <CustomText style={styles.dropdownTriggerText} numberOfLines={2}>{value}</CustomText>
+        <Ionicons name={isOpen ? "chevron-up" : "chevron-down"} size={20} color="#fff" />
       </TouchableOpacity>
-      {isOpen && (
-        <View style={styles.dropdownList}>
-          {options.map((opt: any, i: number) => (
-            <TouchableOpacity
-              key={i}
-              style={styles.dropdownItem}
-              onPress={() => {
-                onSelect(opt.value);
-                setIsOpen(false);
-              }}
-            >
-              <CustomText style={styles.dropdownItemText}>{opt.label}</CustomText>
-            </TouchableOpacity>
-          ))}
+      <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => onOpenChange(false)}>
+        <View style={styles.dropdownModalBackdrop}>
+          <TouchableOpacity activeOpacity={1} style={StyleSheet.absoluteFill} onPress={() => onOpenChange(false)} />
+          <View style={styles.dropdownModalContent}>
+            <LinearGradient colors={["#0d2b43", "#0f4c75"]} style={styles.dropdownList}>
+              <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator nestedScrollEnabled keyboardShouldPersistTaps="always">
+                {options.map((opt: any, index: number) => {
+                  const isSelected = String(opt.value ?? "") === String(selectedValue ?? "");
+                  return <TouchableOpacity key={String(opt.value ?? index)} style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]} onPress={() => { onSelect(opt.value); onOpenChange(false); }} activeOpacity={0.8}>
+                    <CustomText style={styles.dropdownItemText} numberOfLines={2}>{opt.label}</CustomText>
+                    {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
+                    {opt.customerCode != null && <CustomText style={styles.dropdownCodeText}>{toPersianDigits(String(opt.customerCode))}</CustomText>}
+                  </TouchableOpacity>;
+                })}
+              </ScrollView>
+            </LinearGradient>
+          </View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 };
@@ -82,6 +70,7 @@ export default function InvoiceScreen({
   onInvoiceSaved,
   initialCustomer = null,
   invoiceToEdit = null,
+  initialMode = null,
   customers = [
     {
       id: "1",
@@ -105,10 +94,11 @@ export default function InvoiceScreen({
   const insets = useSafeAreaInsets();
   const safePaddingBottom = insets.bottom > 0 ? insets.bottom + 5 : 10;
   const bottomNavHeight = 55 + safePaddingBottom;
-  const [step, setStep] = useState("form");
+  const [step, setStep] = useState(initialMode === "preview" ? "preview" : "form");
   const [isSaving, setIsSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
 
   const PROFORMA_DEFAULT_NOTE =
     "به دلیل نوسانات بازار این پیش فاکتور تا زمان دریافت اسناد مالی قابل تغییر قیمت می‌باشد و فروشنده تضمینی در قبال مبلغ ندارد.";
@@ -129,21 +119,21 @@ export default function InvoiceScreen({
   });
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
-    initialCustomer?.id || null,
+    invoiceToEdit?.customerId || initialCustomer?.id || null,
   );
   const [buyerName, setBuyerName] = useState(
-    initialCustomer ? initialCustomer.name : "",
+    invoiceToEdit?.buyerName ?? (initialCustomer ? initialCustomer.name : ""),
   );
   
   // ✨ توابع toPersianDigits حذف شدند
   const [buyerEconomicCode, setBuyerEconomicCode] = useState(
-    initialCustomer?.economicCode || "",
+    invoiceToEdit?.buyerEconomicCode ?? initialCustomer?.economicCode ?? "",
   );
   const [buyerPhone, setBuyerPhone] = useState(
-    initialCustomer?.phone || "",
+    invoiceToEdit?.buyerPhone ?? initialCustomer?.phone ?? "",
   );
   const [buyerAddress, setBuyerAddress] = useState(
-    initialCustomer?.address || "",
+    invoiceToEdit?.buyerAddress ?? initialCustomer?.address ?? "",
   );
 
   const [rows, setRows] = useState(
@@ -163,27 +153,30 @@ export default function InvoiceScreen({
       : PROFORMA_DEFAULT_NOTE;
   });
 
-  const [sellerName, setSellerName] = useState("");
-  const [sellerPhone, setSellerPhone] = useState("");
-  const [sellerAddress, setSellerAddress] = useState("");
-  const [sellerEconomicCode, setSellerEconomicCode] = useState("");
-  const [sellerLogo, setSellerLogo] = useState<string | null>(null);
+  const [sellerName, setSellerName] = useState(invoiceToEdit?.sellerName ?? "");
+  const [sellerPhone, setSellerPhone] = useState(invoiceToEdit?.sellerPhone ?? "");
+  const [sellerAddress, setSellerAddress] = useState(invoiceToEdit?.sellerAddress ?? "");
+  const [sellerEconomicCode, setSellerEconomicCode] = useState(invoiceToEdit?.sellerEconomicCode ?? "");
+  const [sellerLogo, setSellerLogo] = useState<string | null>(invoiceToEdit?.sellerLogo ?? null);
+  const [invoiceTheme, setInvoiceTheme] = useState("blue");
 
   useEffect(() => {
     const loadCompanySettings = async () => {
       try {
-        const [name, phone, address, code, logo] = await AsyncStorage.multiGet([
+        const [name, phone, address, code, logo, storedTheme] = await AsyncStorage.multiGet([
           "companyName",
           "companyPhone",
           "companyAddress",
           "companyEconomicCode",
           "companyLogo",
+          "invoiceTheme",
         ]);
-        setSellerName(name[1] || "");
-        setSellerPhone(phone[1] || "");
-        setSellerAddress(address[1] || "");
-        setSellerEconomicCode(code[1] || "");
-        setSellerLogo(logo[1] || null);
+        if (storedTheme[1]) setInvoiceTheme(storedTheme[1]);
+        if (invoiceToEdit?.sellerName === undefined) setSellerName(name[1] || "");
+        if (invoiceToEdit?.sellerPhone === undefined) setSellerPhone(phone[1] || "");
+        if (invoiceToEdit?.sellerAddress === undefined) setSellerAddress(address[1] || "");
+        if (invoiceToEdit?.sellerEconomicCode === undefined) setSellerEconomicCode(code[1] || "");
+        if (invoiceToEdit?.sellerLogo === undefined) setSellerLogo(logo[1] || null);
       } catch (error) {
         console.error("Failed to load company invoice settings.", error);
       }
@@ -256,12 +249,21 @@ export default function InvoiceScreen({
   };
 
   useEffect(() => {
-    if (invoiceToEdit?.number || !selectedCustomerId) return;
+    if (invoiceToEdit?.number) return;
 
-    const customer = customers.find(
-      (item: any) => String(item.id) === String(selectedCustomerId),
+    const selectedCustomer = selectedCustomerId
+      ? customers.find(
+          (item: any) => String(item.id) === String(selectedCustomerId),
+        )
+      : null;
+    const highestCustomerCode = customers.reduce(
+      (highest: number, item: any) =>
+        Math.max(highest, Number(item.customerCode) || 0),
+      1000,
     );
-    if (!customer?.customerCode) return;
+    const customerCode = selectedCustomer
+      ? Number(selectedCustomer.customerCode) || highestCustomerCode + 1
+      : highestCustomerCode + 1;
 
     let cancelled = false;
     const isSales = invoiceType === "فاکتور فروش" || invoiceType === "فاکتور";
@@ -272,6 +274,8 @@ export default function InvoiceScreen({
 
       for (const item of savedInvoices) {
         if (String(item.id) === String(invoiceToEdit?.id)) continue;
+        if (!String(item.number).startsWith(`${customerCode}/`)) continue;
+
         const itemIsSales = item.type === "فاکتور فروش" || item.type === "فاکتور";
         if (itemIsSales !== isSales) continue;
 
@@ -283,8 +287,8 @@ export default function InvoiceScreen({
         const nextNumber = highestNumber + 1;
         setInvoiceNumber(
           isSales
-            ? `${customer.customerCode}/${nextNumber}`
-            : `${customer.customerCode}/b/${nextNumber}`,
+            ? `${customerCode}/${nextNumber}`
+            : `${customerCode}/b/${nextNumber}`,
         );
       }
     });
@@ -309,6 +313,15 @@ export default function InvoiceScreen({
         note: noteText,
         items: rows,
         createdAt: invoiceToEdit?.createdAt ?? new Date().toISOString(),
+        buyerName,
+        buyerPhone,
+        buyerEconomicCode,
+        buyerAddress,
+        sellerName,
+        sellerPhone,
+        sellerAddress,
+        sellerEconomicCode,
+        sellerLogo,
       };
 
       const success = await saveInvoice(invoice);
@@ -328,7 +341,7 @@ export default function InvoiceScreen({
   return (
     <View style={styles.container}>
       <Header
-        title={step === "form" ? "صدور فاکتور جدید" : "نمایش فاکتور"}
+        title={step === "form" ? (invoiceToEdit ? "ویرایش فاکتور" : "صدور فاکتور جدید") : "نمایش فاکتور"}
         onBack={handleClose}
         iconName="arrow-back"
       />
@@ -338,6 +351,7 @@ export default function InvoiceScreen({
       >
         <AnimatedScrollWrapper
           ref={scrollRef}
+          scrollEnabled={step === "form"}
           style={{ flex: 1, transform: [{ translateX: slideAnim }] }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -437,20 +451,24 @@ export default function InvoiceScreen({
 
               <LinearGradient
                 colors={["#0f4c75", "#3282b8"]}
-                style={[styles.card, { zIndex: 10 }]}
+                style={[styles.card, { zIndex: isCustomerDropdownOpen ? 1000 : 10 }]}
               >
                 <CustomDropdown
+                  isOpen={isCustomerDropdownOpen}
+                  onOpenChange={setIsCustomerDropdownOpen}
                   label="انتخاب مشتری از لیست :"
                   value={
                     selectedCustomerId
-                      ? customers.find((c: any) => c.id === selectedCustomerId)
+                      ? customers.find((c: any) => String(c.id) === String(selectedCustomerId))
                           ?.name
                       : " مشتری جدید "
                   }
+                  selectedValue={selectedCustomerId}
                   options={[
                     { label: " مشتری جدید ", value: null },
                     ...customers.map((c: any) => ({
                       label: c.name,
+                      customerCode: c.customerCode,
                       value: c.id,
                     })),
                   ]}
@@ -649,6 +667,7 @@ export default function InvoiceScreen({
           ) : (
             <InvoicePreview
               invoiceType={invoiceType}
+              invoiceTheme={invoiceTheme}
               sellerName={sellerName}
               sellerAddress={sellerAddress}
               sellerPhone={sellerPhone}
@@ -662,6 +681,7 @@ export default function InvoiceScreen({
               buyerAddress={buyerAddress}
               rows={rows}
               grandTotal={grandTotal}
+              amountInWords={convertNumberToPersianWords(grandTotal)}
               noteText={noteText}
             />
           )}
@@ -733,7 +753,8 @@ export default function InvoiceScreen({
                 <Ionicons name="download-outline" size={24} color="#fff" />
               </TouchableOpacity>
 
-              <TouchableOpacity
+              {initialMode !== "preview" && (
+<TouchableOpacity
                 style={styles.circleBtnGreen}
                 onPress={handleSaveToDatabase}
                 disabled={isSaving}
@@ -744,6 +765,7 @@ export default function InvoiceScreen({
                   <Ionicons name="checkmark-outline" size={28} color="#fff" />
                 )}
               </TouchableOpacity>
+)}
             </>
           )}
         </View>
@@ -876,38 +898,58 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dropdownTriggerText: {
-    
     color: "#fff",
     fontSize: 15,
+    lineHeight: 21,
+    textAlign: "right",
+    flex: 1,
+    flexShrink: 1,
   },
+  dropdownAnchor: { position: "relative" },
+  dropdownModalBackdrop: { flex: 1, justifyContent: "center", paddingHorizontal: 24, backgroundColor: "rgba(0,0,0,0.45)" },
+  dropdownModalContent: { width: "100%" },
   dropdownList: {
-    backgroundColor: "#0f4c75",
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: "#a2c8e2",
-    marginTop: 4,
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
-    zIndex: 9999,
-    elevation: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
+    padding: 6,
+    maxHeight: 260,
+    overflow: "hidden",
+  },
+  dropdownScroll: {
+    height: 234,
+    maxHeight: 234,
+    flexGrow: 0,
+    flexShrink: 1,
   },
   dropdownItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.15)",
+    minHeight: 44,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#a2c8e2",
+    marginBottom: 4,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dropdownItemSelected: {
+    backgroundColor: "#10b981",
+    borderColor: "#10b981",
   },
   dropdownItemText: {
-    
     color: "#fff",
     fontSize: 14,
+    fontWeight: "600",
     textAlign: "right",
+    flex: 1,
+  },
+  dropdownCodeText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+    marginLeft: 8,
   },
   rowHeader: {
     flexDirection: "row-reverse",

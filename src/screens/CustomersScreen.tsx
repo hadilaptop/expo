@@ -43,6 +43,8 @@ export default function CustomersScreen({
     null
   );
   const [deleteModalData, setDeleteModalData] = useState<Customer | null>(null);
+  const actionButtonRefs = useRef<Record<string, View | null>>({});
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 8 });
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customers;
@@ -118,7 +120,7 @@ export default function CustomersScreen({
         </View>
       </AnimatedScrollWrapper>
 
-      <AnimatedScrollWrapper
+<AnimatedScrollWrapper
         ref={scrollRef}
         style={{
           flex: 1,
@@ -129,7 +131,7 @@ export default function CustomersScreen({
       >
         {filteredCustomers.length > 0 ? (
           filteredCustomers.map((customer) => (
-            <View key={customer.id} style={styles.customerCardWrapper}>
+            <View key={customer.id} style={[styles.customerCardWrapper, activeDropdown === customer.id && styles.customerCardWrapperActive]}>
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={styles.customerCard}
@@ -172,11 +174,17 @@ export default function CustomersScreen({
                       styles.actionBtn,
                       activeDropdown === customer.id && styles.actionBtnActive,
                     ]}
+                    ref={(node) => { actionButtonRefs.current[String(customer.id)] = node; }}
                     onPress={(e) => {
                       e.stopPropagation();
-                      setActiveDropdown(
-                        activeDropdown === customer.id ? null : customer.id
-                      );
+                      if (activeDropdown === customer.id) {
+                        setActiveDropdown(null);
+                        return;
+                      }
+                      actionButtonRefs.current[String(customer.id)]?.measureInWindow((x, y, width, height) => {
+                        setDropdownPosition({ top: y + height, left: Math.max(75, x - 128) });
+                        setActiveDropdown(customer.id);
+                      });
                     }}
                   >
                     <Ionicons
@@ -187,47 +195,7 @@ export default function CustomersScreen({
                   </TouchableOpacity>
                 </LinearGradient>
               </TouchableOpacity>
-
-              {activeDropdown === customer.id && (
-                <View style={styles.dropdownMenu}>
-                  <TouchableOpacity
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setActiveDropdown(null);
-                      onEditCustomer(customer);
-                    }}
-                  >
-                    <Ionicons
-                      name="create-outline"
-                      size={20}
-                      color="#ffffff"
-                    />
-                    <CustomText style={styles.dropdownText}>
-                      ویرایش مشخصات
-                    </CustomText>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.dropdownItem, { borderBottomWidth: 0 }]}
-                    onPress={() => {
-                      setActiveDropdown(null);
-                      setDeleteModalData(customer);
-                    }}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={20}
-                      color="#ff5c5c"
-                    />
-                    <CustomText
-                      style={[styles.dropdownText, { color: '#ff5c5c' }]}
-                    >
-                      حذف مشتری
-                    </CustomText>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+</View>
           ))
         ) : (
           <CustomText style={styles.emptyText}>
@@ -238,12 +206,33 @@ export default function CustomersScreen({
         )}
       </AnimatedScrollWrapper>
 
-      {activeDropdown !== null && (
-        <Pressable
-          style={styles.dropdownBackdrop}
-          onPress={() => setActiveDropdown(null)}
-        />
-      )}
+      <Modal
+        visible={activeDropdown !== null}
+        transparent={true}
+        statusBarTranslucent={true}
+        animationType="none"
+        onRequestClose={() => setActiveDropdown(null)}
+      >
+        <View style={styles.dropdownModalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setActiveDropdown(null)} />
+          {activeDropdown !== null && (() => {
+            const customer = customers.find((item) => String(item.id) === String(activeDropdown));
+            if (!customer) return null;
+            return (
+              <View style={[styles.dropdownMenu, dropdownPosition]}>
+                <TouchableOpacity style={styles.dropdownItem} onPress={() => { setActiveDropdown(null); onEditCustomer(customer); }}>
+                  <Ionicons name="create-outline" size={20} color="#ffffff" />
+                  <CustomText style={styles.dropdownText}>ویرایش مشخصات</CustomText>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setActiveDropdown(null); setDeleteModalData(customer); }}>
+                  <Ionicons name="trash-outline" size={20} color="#ff5c5c" />
+                  <CustomText style={[styles.dropdownText, { color: '#ff5c5c' }]}>حذف مشتری</CustomText>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
+        </View>
+      </Modal>
 
       <Modal
         visible={!!deleteModalData}
@@ -342,6 +331,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 10,
   },
+  customerCardWrapperActive: {
+    zIndex: 30,
+    elevation: 30,
+  },
   customerCard: {
     width: '100%',
     shadowColor: '#3b5998',
@@ -399,15 +392,11 @@ const styles = StyleSheet.create({
   actionBtnActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
-  dropdownBackdrop: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 20,
-    elevation: 20,
+  dropdownModalOverlay: {
+    flex: 1,
   },
   dropdownMenu: {
     position: 'absolute',
-    top: 50,
-    left: 20,
     backgroundColor: '#0f4c75',
     borderWidth: 1,
     borderColor: '#e2e5e8',

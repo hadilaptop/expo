@@ -8,10 +8,9 @@ interface HeaderProps {
   subtitle?: string;                 // âœ¨ Ø²ÛŒØ±Ø¹Ù†ÙˆØ§Ù† (Ø§Ø®ØªÛŒØ§Ø±ÛŒ) - Ø¬Ø¯ÛŒØ¯
   onBack?: () => void;               // ØªØ§Ø¨Ø¹ÛŒ Ú©Ù‡ Ø¨Ø§ Ú©Ù„ÛŒÚ© Ø±ÙˆÛŒ Ø¯Ú©Ù…Ù‡ Ø¨Ø±Ú¯Ø´Øª Ø§Ø¬Ø±Ø§ Ù…ÛŒâ€ŒØ´ÙˆØ¯
   iconName?: any;                    // نام آیکون (اختیاری - پیش‌فرض: arrow-forward)
-  rightContent?: React.ReactNode;
 }
 
-export default function Header({ title, subtitle, onBack, iconName = 'arrow-forward', rightContent }: HeaderProps) {
+export default function Header({ title, subtitle, onBack, iconName = 'arrow-forward' }: HeaderProps) {
   return (
     <LinearGradient
       colors={['#0d2b43', '#0f4c75']}

@@ -17,6 +17,15 @@ export interface StoredInvoice {
   note?: string;
   items?: InvoiceItem[];
   createdAt?: string;
+  buyerName?: string;
+  buyerPhone?: string;
+  buyerEconomicCode?: string;
+  buyerAddress?: string;
+  sellerName?: string;
+  sellerPhone?: string;
+  sellerAddress?: string;
+  sellerEconomicCode?: string;
+  sellerLogo?: string | null;
 }
 
 const STORAGE_KEY = "@hadi_factor_invoices";

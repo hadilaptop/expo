@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   StatusBar,
@@ -31,6 +31,7 @@ import { getInvoices, deleteInvoice, StoredInvoice } from './src/storage/invoice
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('dashboard');
+  const [settingsReturnScreen, setSettingsReturnScreen] = useState('dashboard');
 
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
@@ -40,7 +41,10 @@ export default function App() {
 
   // مشتری‌ای که قرار است ویرایش شود
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
+  const [customerFormReturnScreen, setCustomerFormReturnScreen] = useState('dashboard');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<StoredInvoice | null>(null);
+  const [invoiceMode, setInvoiceMode] = useState<"preview" | "form" | null>(null);
 
   // مشخص می‌کند اطلاعات مشتری‌ها از حافظه خوانده شده یا نه
   const [customersLoaded, setCustomersLoaded] = useState(false);
@@ -169,6 +173,7 @@ export default function App() {
    * ورود به صفحه ویرایش مشتری
    */
   const handleEditCustomer = (customer: Customer) => {
+    setCustomerFormReturnScreen('customers');
     setCustomerToEdit(customer);
     setCurrentScreen('newAccount');
   };
@@ -190,7 +195,17 @@ export default function App() {
       case 'dashboard':
         return (
           <HomeScreen
-            onNavigate={setCurrentScreen}
+            onNavigate={(screen: string) => {
+              if (screen === 'newAccount') {
+                setCustomerFormReturnScreen('dashboard');
+              }
+              if (screen === 'invoice') {
+                setSelectedCustomer(null);
+                setSelectedInvoice(null);
+                setInvoiceMode(null);
+              }
+              setCurrentScreen(screen);
+            }}
             customerCount={customers.length}
             isInitialized={customersLoaded}
           />
@@ -207,6 +222,7 @@ export default function App() {
             }}
             onSave={handleSaveCustomer}
             customerToEdit={customerToEdit}
+            returnScreen={customerFormReturnScreen}
             existingCustomers={customers}
           />
         );
@@ -230,8 +246,10 @@ export default function App() {
               invoices={invoices}
               onDeleteInvoice={handleDeleteInvoice}
               onNavigate={setCurrentScreen}
-              onOpenInvoice={(customer) => {
+              onOpenInvoice={(customer, invoice, mode) => {
                 setSelectedCustomer(customer);
+                setSelectedInvoice(invoice ?? null);
+                setInvoiceMode(mode ?? null);
                 setCurrentScreen('invoice');
               }}
             />
@@ -254,11 +272,13 @@ export default function App() {
             initialCustomer={selectedCustomer}
             customers={customers}
             onInvoiceSaved={handleSaveInvoice}
+            invoiceToEdit={selectedInvoice}
+            initialMode={invoiceMode}
           />
         );
 
       case 'settings':
-        return <SettingsScreen onNavigate={setCurrentScreen} />;
+        return <SettingsScreen onNavigate={setCurrentScreen} returnScreen={settingsReturnScreen} />;
 
       default:
         return <HomeScreen onNavigate={setCurrentScreen} />;
@@ -290,10 +310,14 @@ export default function App() {
         <BottomNav
           activeTab={currentScreen}
           onNavigate={(screen) => {
+            if (screen === 'settings') {
+              setSettingsReturnScreen(currentScreen);
+            }
             // وقتی از مشتری‌ها به ثبت حساب جدید می‌رویم،
             // فرم باید خالی باشد.
             if (screen === 'newAccount') {
               setCustomerToEdit(null);
+              setCustomerFormReturnScreen('dashboard');
             }
 
             setCurrentScreen(screen);

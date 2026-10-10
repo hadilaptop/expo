@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Animated,
@@ -107,6 +107,8 @@ export default function CustomerLedgerScreen({
     [key: string]: boolean;
   }>({});
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuButtonRefs = useRef<Record<string, React.ElementRef<typeof TouchableOpacity> | null>>({});
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 75 });
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [showStatement, setShowStatement] = useState(false);
 
@@ -350,28 +352,6 @@ export default function CustomerLedgerScreen({
         subtitle={`کد مشتری: ${toPersianDigits(getCustomerCode(customer, customers))}`}
         onBack={() => onNavigate("customers")}
         iconName="arrow-back"
-        rightContent={
-          <View style={styles.headerButtons}>
-            <TouchableOpacity
-              style={styles.headerBtn}
-              onPress={handleOpenNewPayment}
-            >
-              <Ionicons name="cash-outline" size={20} color="#ffffff" />
-            </TouchableOpacity>
-            {onOpenInvoice && (
-              <TouchableOpacity
-                style={styles.headerBtn}
-                onPress={() => onOpenInvoice(customer)}
-              >
-                <Ionicons
-                  name="document-text-outline"
-                  size={20}
-                  color="#ffffff"
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        }
       />
 
       {/* Filter & Tabs Bar */}
@@ -452,7 +432,7 @@ export default function CustomerLedgerScreen({
         />
       )}
       {showAllFilterMenu && (
-        <View style={styles.allFiltersDropdown}>
+        <LinearGradient colors={["#0d2b43", "#0f4c75"]} style={styles.allFiltersDropdown}>
           <TouchableOpacity
             style={[
               styles.filterOption,
@@ -462,10 +442,10 @@ export default function CustomerLedgerScreen({
               setAllFilters((p) => ({ ...p, payments: !p.payments }));
             }}
           >
-            <CustomText style={styles.filterOptionText}>دریافتی</CustomText>
             {allFilters.payments && (
               <Ionicons name="checkmark" size={18} color="#10b981" />
             )}
+            <CustomText style={styles.filterOptionText}>دریافتی</CustomText>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -477,10 +457,10 @@ export default function CustomerLedgerScreen({
               setAllFilters((p) => ({ ...p, invoices: !p.invoices }));
             }}
           >
-            <CustomText style={styles.filterOptionText}>فاکتور فروش</CustomText>
             {allFilters.invoices && (
               <Ionicons name="checkmark" size={18} color="#10b981" />
             )}
+            <CustomText style={styles.filterOptionText}>فاکتور فروش</CustomText>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -492,12 +472,12 @@ export default function CustomerLedgerScreen({
               setAllFilters((p) => ({ ...p, proformas: !p.proformas }));
             }}
           >
-            <CustomText style={styles.filterOptionText}>پیش فاکتور</CustomText>
             {allFilters.proformas && (
               <Ionicons name="checkmark" size={18} color="#10b981" />
             )}
+            <CustomText style={styles.filterOptionText}>پیش فاکتور</CustomText>
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       )}
 
       {/* Transactions List */}
@@ -520,7 +500,7 @@ export default function CustomerLedgerScreen({
             const isMenuOpen = openMenuId === item.id;
 
             return (
-              <View key={item.id} style={styles.card}>
+              <View key={item.id} style={[styles.card, isMenuOpen && styles.cardMenuOpen]}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={styles.cardMainRow}
@@ -599,8 +579,19 @@ export default function CustomerLedgerScreen({
                     </TouchableOpacity>
 
                     <TouchableOpacity
+                      ref={(node) => { menuButtonRefs.current[item.id] = node; }}
                       style={styles.menuTrigger}
-                      onPress={() => setOpenMenuId(isMenuOpen ? null : item.id)}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        if (isMenuOpen) {
+                          setOpenMenuId(null);
+                          return;
+                        }
+                        menuButtonRefs.current[item.id]?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                          setMenuPosition({ top: y + height, left: Math.max(75, x - 128) });
+                          setOpenMenuId(item.id);
+                        });
+                      }}
                     >
                       <Ionicons
                         name="ellipsis-vertical"
@@ -610,9 +601,23 @@ export default function CustomerLedgerScreen({
                     </TouchableOpacity>
                   </View>
 
+                </TouchableOpacity>
+
                   {/* Action Menu Dropdown */}
-                  {isMenuOpen && (
-                    <View style={styles.cardMenu}>
+                  <Modal
+                    visible={isMenuOpen}
+                    transparent
+                    animationType="none"
+                    onRequestClose={() => setOpenMenuId(null)}
+                  >
+                    <Pressable
+                      style={styles.dropdownModalOverlay}
+                      onPress={() => setOpenMenuId(null)}
+                    >
+                      <View
+                        style={[styles.cardMenu, { top: menuPosition.top, left: menuPosition.left }]}
+                        onStartShouldSetResponder={() => true}
+                      >
                       {isPayment ? (
                         <TouchableOpacity
                           style={styles.cardMenuItem}
@@ -639,12 +644,15 @@ export default function CustomerLedgerScreen({
                             style={styles.cardMenuItem}
                             onPress={() => {
                               setOpenMenuId(null);
-                              onOpenInvoice?.(customer, item, "preview");
+                              const orig = invoices.find(
+                                (i) => String(i.id) === String(item.originalId),
+                              );
+                              onOpenInvoice?.(customer, orig || item, "preview");
                             }}
                           >
                             <Ionicons
                               name="eye-outline"
-                              size={18}
+                              size={20}
                               color="#ffffff"
                             />
                             <CustomText style={styles.menuText}>
@@ -663,7 +671,7 @@ export default function CustomerLedgerScreen({
                           >
                             <Ionicons
                               name="create-outline"
-                              size={18}
+                              size={20}
                               color="#ffffff"
                             />
                             <CustomText style={styles.menuText}>
@@ -682,18 +690,19 @@ export default function CustomerLedgerScreen({
                       >
                         <Ionicons
                           name="trash-outline"
-                          size={18}
+                          size={20}
                           color="#ff5c5c"
                         />
                         <CustomText
                           style={[styles.menuText, { color: "#ff5c5c" }]}
                         >
-                          حذف
+                         حذف فاکتور
                         </CustomText>
                       </TouchableOpacity>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                      </View>
+                    </Pressable>
+                  </Modal>
+
 
                 {/* Expanded Details */}
                 {isExpanded && (
@@ -1069,18 +1078,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#eaf6fc",
   },
-  headerButtons: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   filterBar: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -1147,21 +1144,30 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   allFiltersDropdown: {
-    zIndex: 3,
-    elevation: 3,
-    backgroundColor: "#0f4c75",
-    marginHorizontal: 15,
+    position: "absolute",
+    top: 190,
+    right: 15,
+    width: 190,
+    zIndex: 1000,
+    elevation: 10,
     padding: 8,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#a2c8e2",
-  },  filterOption: {
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+  },
+  filterOption: {
     flexDirection: "row",
+    direction: "ltr",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 10,
-    borderRadius: 6,
+    borderRadius: 8,
+    minHeight: 40,
   },
   filterOptionSelected: {
     backgroundColor: "rgba(255, 255, 255, 0.05)",
@@ -1169,6 +1175,8 @@ const styles = StyleSheet.create({
   filterOptionText: {
     color: "#ffffff",
     fontSize: 13,
+    textAlign: "right",
+    flex: 1,
   },
   listContainer: {
     flex: 1,
@@ -1192,6 +1200,10 @@ const styles = StyleSheet.create({
     padding: 10,
     borderWidth: 1,
     borderColor: "#09bcbc",
+  },
+  cardMenuOpen: {
+    zIndex: 30,
+    elevation: 30,
   },
   cardMainRow: {
     flexDirection: "row-reverse",
@@ -1265,30 +1277,35 @@ const styles = StyleSheet.create({
   menuTrigger: {
     padding: 4,
   },
+  dropdownModalOverlay: {
+    flex: 1,
+  },
   cardMenu: {
     position: "absolute",
-    top: 30,
-    left: 10,
     backgroundColor: "#0f4c75",
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#e2e5e8",
     zIndex: 100,
-    minWidth: 160,
+    minWidth: 180,
     elevation: 10,
-    padding: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
   cardMenuItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
-    gap: 8,
+
     borderBottomWidth: 1,
     borderBottomColor: "#778ca1",
   },
   menuText: {
     color: "#ffffff",
-    fontSize: 12,
+    fontSize: 14,
+    marginLeft: 15,
   },
   expandedBody: {
     marginTop: 10,
